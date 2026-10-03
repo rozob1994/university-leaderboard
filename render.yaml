@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: university-leaderboard-private
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ADMIN_USERS_JSON
+        sync: false
