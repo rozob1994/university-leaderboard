@@ -368,6 +368,14 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     installPrompt: null,
     pngCache: null,
     pdfCache: null,
+    sharedEnabled: false,
+    sharedRevision: 0,
+    sharedBaseProject: null,
+    sharedSaving: false,
+    sharedSaveQueued: false,
+    sharedPollTimer: null,
+    sharedLastUpdatedBy: '',
+    sharedLastUpdatedAt: '',
   };
 
   function normalizeProject(project) {
