@@ -881,8 +881,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   function downloadProject(){downloadBlob(new Blob([projectJson()],{type:'application/json'}),`Leaderboard_${new Date().toISOString().slice(0,10)}.leaderboard.json`);}
 
   async function standaloneHtml(){
-    let html='<!doctype html>
-'+document.documentElement.outerHTML;
+    let html='<!doctype html>\n'+document.documentElement.outerHTML;
     const initial=`window.INITIAL_PROJECT=${JSON.stringify(state.project)};`;
     html=html.replace(/<script>window\.INITIAL_PROJECT=.*?<\/script>/s,`<script>${initial}<\/script>`);
     html=html.replace('<link rel="manifest" href="manifest.webmanifest">','').replace('<link rel="icon" href="icon.svg" type="image/svg+xml">','');
