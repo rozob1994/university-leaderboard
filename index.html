@@ -440,12 +440,226 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     state.pdfCache = null;
   }
 
+  const jsonEqual = (a,b) => JSON.stringify(a) === JSON.stringify(b);
+
+  function projectForShared(project = state.project) {
+    const p = deepClone(project);
+    if (p.settings) delete p.settings.activeClassDay;
+    return p;
+  }
+
+  function mergeEntityArray(baseArr, localArr, remoteArr, keys) {
+    const b = new Map((baseArr || []).map(x => [x.id, x]));
+    const l = new Map((localArr || []).map(x => [x.id, x]));
+    const r = new Map((remoteArr || []).map(x => [x.id, x]));
+    const ids = new Set([...b.keys(), ...l.keys(), ...r.keys()]);
+    const out = [];
+    for (const id of ids) {
+      const bv=b.get(id), lv=l.get(id), rv=r.get(id);
+      if (bv && !lv) continue;
+      if (!bv && lv) { out.push(deepClone(lv)); continue; }
+      if (!bv && !lv && rv) { out.push(deepClone(rv)); continue; }
+      if (bv && lv && !rv) {
+        if (!jsonEqual(lv,bv)) out.push(deepClone(lv));
+        continue;
+      }
+      if (bv && lv && rv) {
+        const merged=deepClone(rv);
+        for (const key of keys) {
+          if (!jsonEqual(lv[key],bv[key])) merged[key]=deepClone(lv[key]);
+        }
+        out.push(merged);
+      }
+    }
+    return out;
+  }
+
+  function mergeSharedProjects(baseProject, localProject, remoteProject) {
+    const remote = normalizeProject(remoteProject);
+    const base = baseProject ? normalizeProject(baseProject) : normalizeProject(remoteProject);
+    const local = normalizeProject(localProject);
+    const merged = deepClone(remote);
+
+    merged.name = !jsonEqual(local.name, base.name) ? local.name : remote.name;
+    merged.settings = Object.assign({}, remote.settings || {});
+    const settingKeys = new Set([
+      ...Object.keys(base.settings || {}),
+      ...Object.keys(local.settings || {}),
+      ...Object.keys(remote.settings || {})
+    ]);
+    settingKeys.delete('activeClassDay');
+    for (const key of settingKeys) {
+      if (!jsonEqual(local.settings?.[key], base.settings?.[key])) merged.settings[key]=deepClone(local.settings?.[key]);
+    }
+
+    merged.assignments = mergeEntityArray(
+      base.assignments, local.assignments, remote.assignments,
+      ['order','name','max','color']
+    );
+    merged.students = mergeEntityArray(
+      base.students, local.students, remote.students,
+      ['classDay','group','order','name','confidence','note']
+    );
+
+    const validStudentIds = new Set(merged.students.map(x=>x.id));
+    const validAssignmentIds = new Set(merged.assignments.map(x=>x.id));
+    merged.scores = {};
+    for (const sid of validStudentIds) {
+      merged.scores[sid] = {};
+      for (const aid of validAssignmentIds) {
+        const bv=base.scores?.[sid]?.[aid] ?? null;
+        const lv=local.scores?.[sid]?.[aid] ?? null;
+        const rv=remote.scores?.[sid]?.[aid] ?? null;
+        merged.scores[sid][aid] = !jsonEqual(lv,bv) ? lv : rv;
+      }
+    }
+    merged.modifiedAt = nowIso();
+    return normalizeProject(merged);
+  }
+
+  function setSharedStatus(text, visible=true) {
+    const el=$('sharedStatus');
+    if (!el) return;
+    el.hidden=!visible;
+    if (visible) el.textContent=text;
+  }
+
+  async function fetchSharedSnapshot() {
+    const r=await fetch('/api/project',{cache:'no-store'});
+    if (r.status===401) { location.href='/login'; return null; }
+    const data=await r.json().catch(()=>({}));
+    if (r.status===503) {
+      state.sharedEnabled=false;
+      setSharedStatus(data.configured===false ? 'دادهٔ مشترک هنوز تنظیم نشده' : 'دادهٔ مشترک موقتاً در دسترس نیست');
+      return null;
+    }
+    if (!r.ok) throw new Error(data.error || 'shared_load_failed');
+    state.sharedEnabled=true;
+    return data;
+  }
+
+  function applyRemoteProject(project, revision, updatedBy='', updatedAt='', announce=true) {
+    const localDay=state.project?.settings?.activeClassDay || 'monday';
+    const p=normalizeProject(project);
+    p.settings.activeClassDay=localDay;
+    state.project=p;
+    state.sharedRevision=Number(revision||0);
+    state.sharedBaseProject=projectForShared(p);
+    state.sharedLastUpdatedBy=updatedBy || '';
+    state.sharedLastUpdatedAt=updatedAt || '';
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(p));
+    if (announce) setSharedStatus('همگام شد' + (updatedBy ? ' · '+updatedBy : ''));
+  }
+
+  async function loadSharedAtStartup() {
+    try {
+      const data=await fetchSharedSnapshot();
+      if (!data) return false;
+      state.sharedRevision=Number(data.revision||0);
+      if (data.project) {
+        applyRemoteProject(data.project,data.revision,data.updatedBy,data.updatedAt,false);
+        setSharedStatus('دادهٔ مشترک بارگذاری شد' + (data.updatedBy ? ' · '+data.updatedBy : ''));
+      } else {
+        state.sharedBaseProject=null;
+        setSharedStatus('دادهٔ مشترک خالی است · یک پروژه وارد کنید');
+      }
+      return true;
+    } catch(e) {
+      console.warn('Shared project startup load failed',e);
+      setSharedStatus('آفلاین · تغییرات فعلاً محلی ذخیره می‌شوند');
+      return false;
+    }
+  }
+
+  async function syncSharedProject() {
+    if (!state.sharedEnabled || !navigator.onLine) return false;
+    if (state.sharedSaving) {
+      state.sharedSaveQueued=true;
+      return false;
+    }
+    state.sharedSaving=true;
+    let payload=projectForShared(state.project);
+    try {
+      for (let attempt=0; attempt<2; attempt++) {
+        const r=await fetch('/api/project',{
+          method:'PUT',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({project:payload,baseRevision:state.sharedRevision})
+        });
+        if (r.status===401) { location.href='/login'; return false; }
+        const data=await r.json().catch(()=>({}));
+        if (r.status===503) {
+          state.sharedEnabled=false;
+          setSharedStatus('دادهٔ مشترک موقتاً در دسترس نیست');
+          return false;
+        }
+        if (r.status===409 && data.current?.project) {
+          const remoteCanonical=projectForShared(normalizeProject(data.current.project));
+          const currentLocal=projectForShared(state.project);
+          const merged=mergeSharedProjects(state.sharedBaseProject || remoteCanonical,currentLocal,remoteCanonical);
+          const localDay=state.project.settings.activeClassDay || 'monday';
+          state.project=merged;
+          state.project.settings.activeClassDay=localDay;
+          state.sharedRevision=Number(data.current.revision||0);
+          state.sharedBaseProject=remoteCanonical;
+          localStorage.setItem(STORAGE_KEY,JSON.stringify(state.project));
+          renderAllEditors();
+          payload=projectForShared(state.project);
+          continue;
+        }
+        if (!r.ok) throw new Error(data.error || 'shared_save_failed');
+
+        state.sharedRevision=Number(data.revision||state.sharedRevision);
+        state.sharedBaseProject=deepClone(payload);
+        state.sharedLastUpdatedBy=data.updatedBy || '';
+        state.sharedLastUpdatedAt=data.updatedAt || '';
+        setSharedStatus('همگام شد' + (data.updatedBy ? ' · '+data.updatedBy : ''));
+        return true;
+      }
+      setSharedStatus('تداخل همگام‌سازی · دوباره تلاش می‌شود');
+      return false;
+    } catch(e) {
+      console.warn('Shared project save failed',e);
+      setSharedStatus('آفلاین · تغییرات روی این دستگاه محفوظ است');
+      return false;
+    } finally {
+      state.sharedSaving=false;
+      if (state.sharedSaveQueued) {
+        state.sharedSaveQueued=false;
+        setTimeout(()=>syncSharedProject(),50);
+      }
+    }
+  }
+
+  async function pollSharedProject() {
+    if (!state.sharedEnabled || !navigator.onLine || state.dirty || state.sharedSaving || document.hidden) return;
+    try {
+      const data=await fetchSharedSnapshot();
+      if (!data || !data.project) return;
+      if (Number(data.revision||0) > state.sharedRevision) {
+        applyRemoteProject(data.project,data.revision,data.updatedBy,data.updatedAt,false);
+        renderAllEditors();
+        setSharedStatus('به‌روزرسانی شد' + (data.updatedBy ? ' · '+data.updatedBy : ''));
+      }
+    } catch(e) {
+      console.warn('Shared poll failed',e);
+    }
+  }
+
+  function startSharedPolling() {
+    clearInterval(state.sharedPollTimer);
+    if (!state.sharedEnabled) return;
+    state.sharedPollTimer=setInterval(pollSharedProject,8000);
+    window.addEventListener('online',()=>{pollSharedProject();});
+  }
+
   async function saveLocal() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state.project));
       state.dirty = false;
       $('saveStatus').textContent = 'روی این دستگاه ذخیره شد';
       maybeSnapshot();
+      await syncSharedProject();
       await autosaveCloud();
     } catch (e) {
       $('saveStatus').textContent = 'ذخیرهٔ محلی ناموفق بود';
