@@ -6,6 +6,7 @@ const path = require('path');
 const crypto = require('crypto');
 const querystring = require('querystring');
 const { createClient } = require('@libsql/client');
+const { Pool } = require('pg');
 
 const PORT = Number(process.env.PORT || 10000);
 const ROOT = __dirname;
@@ -16,10 +17,12 @@ const PBKDF2_DIGEST = 'sha256';
 const MAX_FORM_BODY = 16 * 1024;
 const MAX_JSON_BODY = 2 * 1024 * 1024;
 
+const DATABASE_URL = String(process.env.DATABASE_URL || process.env.POSTGRES_URL || '').trim();
 const TURSO_DATABASE_URL = String(process.env.TURSO_DATABASE_URL || '').trim();
 const TURSO_AUTH_TOKEN = String(process.env.TURSO_AUTH_TOKEN || '').trim();
-const SHARED_DB_CONFIGURED = Boolean(TURSO_DATABASE_URL && TURSO_AUTH_TOKEN);
+const SHARED_DB_CONFIGURED = Boolean(DATABASE_URL || (TURSO_DATABASE_URL && TURSO_AUTH_TOKEN));
 let sharedDb = null;
+let sharedDbKind = null;
 let sharedDbError = null;
 
 if (SESSION_SECRET.length < 32) {
@@ -186,11 +189,35 @@ async function parseJsonBody(req) {
 
 async function initSharedDb() {
   if (!SHARED_DB_CONFIGURED) {
-    console.log('Shared data: disabled until TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are configured.');
+    console.log('Shared data: disabled until DATABASE_URL or Turso credentials are configured.');
     return;
   }
   try {
+    if (DATABASE_URL) {
+      const sslMode = String(process.env.PGSSL || process.env.PGSSLMODE || '').toLowerCase();
+      const ssl = ['require','verify-ca','verify-full'].includes(sslMode) ? { rejectUnauthorized: false } : undefined;
+      sharedDb = new Pool({ connectionString: DATABASE_URL, ssl });
+      sharedDbKind = 'postgres';
+      await sharedDb.query(`CREATE TABLE IF NOT EXISTS shared_project (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        data TEXT NOT NULL,
+        revision BIGINT NOT NULL,
+        updated_at TEXT NOT NULL,
+        updated_by TEXT NOT NULL
+      )`);
+      await sharedDb.query(`CREATE TABLE IF NOT EXISTS project_revisions (
+        revision BIGINT PRIMARY KEY,
+        data TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        updated_by TEXT NOT NULL
+      )`);
+      sharedDbError = null;
+      console.log('Shared data: PostgreSQL connected.');
+      return;
+    }
+
     sharedDb = createClient({ url: TURSO_DATABASE_URL, authToken: TURSO_AUTH_TOKEN });
+    sharedDbKind = 'turso';
     await sharedDb.batch([
       `CREATE TABLE IF NOT EXISTS shared_project (
         id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -209,17 +236,26 @@ async function initSharedDb() {
     sharedDbError = null;
     console.log('Shared data: Turso connected.');
   } catch (err) {
+    try { if (sharedDbKind === 'postgres' && sharedDb) await sharedDb.end(); } catch {}
     sharedDb = null;
+    sharedDbKind = null;
     sharedDbError = String(err && err.message || err);
-    console.error('Shared data: Turso initialization failed:', sharedDbError);
+    console.error('Shared data initialization failed:', sharedDbError);
   }
 }
 
 async function readSharedProject() {
   if (!sharedDb) return null;
-  const rs = await sharedDb.execute('SELECT data, revision, updated_at, updated_by FROM shared_project WHERE id = 1');
-  if (!rs.rows.length) return null;
-  const row = rs.rows[0];
+  let rows;
+  if (sharedDbKind === 'postgres') {
+    const rs = await sharedDb.query('SELECT data, revision, updated_at, updated_by FROM shared_project WHERE id = 1');
+    rows = rs.rows;
+  } else {
+    const rs = await sharedDb.execute('SELECT data, revision, updated_at, updated_by FROM shared_project WHERE id = 1');
+    rows = rs.rows;
+  }
+  if (!rows.length) return null;
+  const row = rows[0];
   return {
     project: JSON.parse(String(row.data)),
     revision: Number(row.revision || 0),
@@ -235,6 +271,76 @@ function validProjectShape(project) {
     project.scores && typeof project.scores === 'object';
 }
 
+async function insertInitialSharedProject(data, now, username) {
+  if (sharedDbKind === 'postgres') {
+    const rs = await sharedDb.query(
+      'INSERT INTO shared_project (id, data, revision, updated_at, updated_by) VALUES (1, $1, 1, $2, $3) ON CONFLICT (id) DO NOTHING',
+      [data, now, username]
+    );
+    return rs.rowCount;
+  }
+  const rs = await sharedDb.execute({
+    sql: 'INSERT OR IGNORE INTO shared_project (id, data, revision, updated_at, updated_by) VALUES (1, ?, 1, ?, ?)',
+    args: [data, now, username]
+  });
+  return rs.rowsAffected;
+}
+
+async function saveRevision(revision, data, now, username) {
+  if (sharedDbKind === 'postgres') {
+    await sharedDb.query(
+      `INSERT INTO project_revisions (revision, data, updated_at, updated_by)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (revision) DO UPDATE SET data=EXCLUDED.data, updated_at=EXCLUDED.updated_at, updated_by=EXCLUDED.updated_by`,
+      [revision, data, now, username]
+    );
+  } else {
+    await sharedDb.execute({
+      sql: 'INSERT OR REPLACE INTO project_revisions (revision, data, updated_at, updated_by) VALUES (?, ?, ?, ?)',
+      args: [revision, data, now, username]
+    });
+  }
+}
+
+async function updateSharedProjectRow(data, next, now, username, currentRevision) {
+  if (sharedDbKind === 'postgres') {
+    const rs = await sharedDb.query(
+      'UPDATE shared_project SET data=$1, revision=$2, updated_at=$3, updated_by=$4 WHERE id=1 AND revision=$5',
+      [data, next, now, username, currentRevision]
+    );
+    return rs.rowCount;
+  }
+  const rs = await sharedDb.execute({
+    sql: 'UPDATE shared_project SET data = ?, revision = ?, updated_at = ?, updated_by = ? WHERE id = 1 AND revision = ?',
+    args: [data, next, now, username, currentRevision]
+  });
+  return rs.rowsAffected;
+}
+
+async function trimRevisions(minRevision) {
+  if (sharedDbKind === 'postgres') {
+    await sharedDb.query('DELETE FROM project_revisions WHERE revision < $1', [minRevision]);
+  } else {
+    await sharedDb.execute({ sql: 'DELETE FROM project_revisions WHERE revision < ?', args: [minRevision] });
+  }
+}
+
+async function listSharedRevisions() {
+  let rows;
+  if (sharedDbKind === 'postgres') {
+    const rs = await sharedDb.query('SELECT revision, updated_at, updated_by FROM project_revisions ORDER BY revision DESC LIMIT 20');
+    rows = rs.rows;
+  } else {
+    const rs = await sharedDb.execute('SELECT revision, updated_at, updated_by FROM project_revisions ORDER BY revision DESC LIMIT 20');
+    rows = rs.rows;
+  }
+  return rows.map(r => ({
+    revision: Number(r.revision),
+    updatedAt: String(r.updated_at || ''),
+    updatedBy: String(r.updated_by || '')
+  }));
+}
+
 async function saveSharedProject(project, baseRevision, username) {
   const data = JSON.stringify(project);
   if (Buffer.byteLength(data, 'utf8') > 1500000) throw new Error('Project is too large');
@@ -243,15 +349,9 @@ async function saveSharedProject(project, baseRevision, username) {
 
   if (!current) {
     if (Number(baseRevision || 0) !== 0) return { conflict: true, current: null };
-    const inserted = await sharedDb.execute({
-      sql: 'INSERT OR IGNORE INTO shared_project (id, data, revision, updated_at, updated_by) VALUES (1, ?, 1, ?, ?)',
-      args: [data, now, username]
-    });
-    if (!inserted.rowsAffected) return { conflict: true, current: await readSharedProject() };
-    await sharedDb.execute({
-      sql: 'INSERT OR REPLACE INTO project_revisions (revision, data, updated_at, updated_by) VALUES (1, ?, ?, ?)',
-      args: [data, now, username]
-    });
+    const inserted = await insertInitialSharedProject(data, now, username);
+    if (!inserted) return { conflict: true, current: await readSharedProject() };
+    await saveRevision(1, data, now, username);
     return { conflict: false, revision: 1, updatedAt: now, updatedBy: username };
   }
 
@@ -259,20 +359,11 @@ async function saveSharedProject(project, baseRevision, username) {
   if (base !== current.revision) return { conflict: true, current };
 
   const next = current.revision + 1;
-  const updated = await sharedDb.execute({
-    sql: 'UPDATE shared_project SET data = ?, revision = ?, updated_at = ?, updated_by = ? WHERE id = 1 AND revision = ?',
-    args: [data, next, now, username, current.revision]
-  });
-  if (!updated.rowsAffected) return { conflict: true, current: await readSharedProject() };
+  const updated = await updateSharedProjectRow(data, next, now, username, current.revision);
+  if (!updated) return { conflict: true, current: await readSharedProject() };
 
-  await sharedDb.execute({
-    sql: 'INSERT OR REPLACE INTO project_revisions (revision, data, updated_at, updated_by) VALUES (?, ?, ?, ?)',
-    args: [next, data, now, username]
-  });
-  await sharedDb.execute({
-    sql: 'DELETE FROM project_revisions WHERE revision < ?',
-    args: [Math.max(1, next - 99)]
-  });
+  await saveRevision(next, data, now, username);
+  await trimRevisions(Math.max(1, next - 99));
   return { conflict: false, revision: next, updatedAt: now, updatedBy: username };
 }
 
@@ -315,6 +406,7 @@ const server = http.createServer(async (req, res) => {
         ok: true,
         sharedDataConfigured: SHARED_DB_CONFIGURED,
         sharedDataConnected: Boolean(sharedDb),
+        sharedDataKind: sharedDbKind,
         sharedDataError: sharedDbError
       });
     }
@@ -410,14 +502,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname === '/api/project/revisions') {
       if (!sharedDb) return sendJson(res, 503, { error: 'shared_database_unavailable' });
-      const rs = await sharedDb.execute('SELECT revision, updated_at, updated_by FROM project_revisions ORDER BY revision DESC LIMIT 20');
-      return sendJson(res, 200, {
-        revisions: rs.rows.map(r => ({
-          revision: Number(r.revision),
-          updatedAt: String(r.updated_at || ''),
-          updatedBy: String(r.updated_by || '')
-        }))
-      });
+      return sendJson(res, 200, { revisions: await listSharedRevisions() });
     }
 
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed');
