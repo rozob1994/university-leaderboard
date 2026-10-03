@@ -1,4 +1,4 @@
-const CACHE='university-leaderboard-grouped-scores-v1';
+const CACHE='university-leaderboard-nonblocking-load-v1';
 const CORE=['./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',event=>{
