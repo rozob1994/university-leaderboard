@@ -846,18 +846,18 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   }
 
   function makeCsv(rows){return rows.map(row=>row.map(v=>{const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\r\n');}
-  function projectCsvFiles(){const p=state.project,as=sortedAssignments(),ss=sortedStudents();return {
-    'students.csv':makeCsv([['Group','Order','Name','Confidence','Note'],...ss.map(s=>[s.group,s.order,s.name,s.confidence,s.note])]),
+  function projectCsvFiles(){const p=state.project,as=sortedAssignments(),ss=sortedStudents(true);return {
+    'students.csv':makeCsv([['Class day','Group','Order','Name','Confidence','Note'],...ss.map(s=>[s.classDay||'monday',s.group,s.order,s.name,s.confidence,s.note])]),
     'assignments.csv':makeCsv([['Order','Assignment','Max Points','Color HEX'],...as.map(a=>[a.order,a.name,a.max,a.color])]),
-    'scores.csv':makeCsv([['Group','Student',...as.map(a=>a.name)],...ss.map(s=>[s.group,s.name,...as.map(a=>p.scores[s.id]?.[a.id]??'')])])
+    'scores.csv':makeCsv([['Class day','Group','Student',...as.map(a=>a.name)],...ss.map(s=>[s.classDay||'monday',s.group,s.name,...as.map(a=>p.scores[s.id]?.[a.id]??'')])])
   };}
 
   function excelCol(n){let s='';while(n){n--;s=String.fromCharCode(65+n%26)+s;n=Math.floor(n/26);}return s;}
   function sheetXml(rows){let out='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';rows.forEach((row,ri)=>{out+=`<row r="${ri+1}">`;row.forEach((v,ci)=>{if(v===null||v===undefined||v==='')return;const ref=excelCol(ci+1)+(ri+1);if(typeof v==='number')out+=`<c r="${ref}"><v>${v}</v></c>`;else out+=`<c r="${ref}" t="inlineStr"><is><t>${xmlEsc(v)}</t></is></c>`;});out+='</row>';});return out+'</sheetData></worksheet>';}
-  async function makeXlsxBlob(){const p=state.project,as=sortedAssignments(),ss=sortedStudents();const sheets=[
-    ['Students',[['Group','Order','Name','Read confidence','Transcription note'],...ss.map(s=>[s.group,s.order,s.name,s.confidence,s.note])]],
+  async function makeXlsxBlob(){const p=state.project,as=sortedAssignments(),ss=sortedStudents(true);const sheets=[
+    ['Students',[['Class day','Group','Order','Name','Read confidence','Transcription note'],...ss.map(s=>[s.classDay||'monday',s.group,s.order,s.name,s.confidence,s.note])]],
     ['Assignments',[['Order','Assignment','Max Points','Color HEX'],...as.map(a=>[a.order,a.name,a.max,a.color])]],
-    ['Scores',[['Group','Student',...as.map(a=>a.name)],...ss.map(s=>[s.group,s.name,...as.map(a=>p.scores[s.id]?.[a.id]??'')])]],
+    ['Scores',[['Class day','Group','Student',...as.map(a=>a.name)],...ss.map(s=>[s.classDay||'monday',s.group,s.name,...as.map(a=>p.scores[s.id]?.[a.id]??'')])]],
     ['Settings',[['Setting','Value'],...Object.entries(p.settings)]]
   ];
     const files={};files['[Content_Types].xml']='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')+'</Types>';
