@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>ورود · لیدربورد دانشگاه</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f4f6f7;color:#20262a;font-family:Tahoma,Arial,sans-serif;padding:24px}
+    .box{width:min(420px,100%);background:white;border:1px solid #dfe3e6;border-radius:18px;padding:28px;box-shadow:0 18px 55px rgba(20,35,42,.10)}
+    .mark{width:52px;height:52px;border-radius:14px;background:#0b566b;display:grid;place-items:center;color:white;margin-bottom:18px}
+    .mark svg{width:30px;height:30px}
+    h1{font-size:22px;margin:0 0 6px} p{color:#6b7378;margin:0 0 22px;line-height:1.7;font-size:14px}
+    label{display:block;font-size:13px;font-weight:700;margin:14px 0 6px}
+    input{width:100%;height:46px;border:1px solid #ccd3d7;border-radius:10px;padding:10px 12px;font:inherit;direction:ltr;text-align:left}
+    input:focus{outline:3px solid rgba(11,86,107,.14);border-color:#0b566b}
+    button{width:100%;height:46px;margin-top:20px;border:0;border-radius:10px;background:#0b566b;color:#fff;font:inherit;font-weight:800;cursor:pointer}
+    button:hover{background:#0e6b82}
+    .error{background:#fff0f1;color:#8b2d35;border:1px solid #f0c5c9;padding:10px 12px;border-radius:9px;margin:0 0 12px;font-size:13px}
+    .foot{margin-top:18px;color:#858c91;font-size:11px;text-align:center}
+  </style>
+</head>
+<body>
+  <main class="box">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V7l8-3 8 3v13"/><path d="M8 20v-7h8v7M9 9h.01M12 9h.01M15 9h.01"/></svg>
+    </div>
+    <h1>ورود به لیدربورد</h1>
+    <p>این صفحه فقط برای سه مدیر مجاز است. نام کاربری و رمز عبور خودتان را وارد کنید.</p>
+    {{ERROR}}
+    <form method="post" action="/auth/login" autocomplete="on">
+      <label for="username">نام کاربری</label>
+      <input id="username" name="username" autocomplete="username" required maxlength="80" autofocus>
+      <label for="password">رمز عبور</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="256">
+      <button type="submit">ورود</button>
+    </form>
+    <div class="foot">University Leaderboard · Private Admin Access</div>
+  </main>
+  <script>
+    const e=document.querySelector('.error');
+    if(!e && '{{ERROR}}'.trim()){}
+  </script>
+</body>
+</html>
