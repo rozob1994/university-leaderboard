@@ -1,4 +1,4 @@
-const CACHE='university-leaderboard-shared-data-v1';
+const CACHE='university-leaderboard-mobile-drag-v1';
 const CORE=['./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',event=>{
