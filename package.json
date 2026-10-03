@@ -1,0 +1,13 @@
+{
+  "name": "university-leaderboard-private",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Password-protected host for the University Leaderboard PWA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
