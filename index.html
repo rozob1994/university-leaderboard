@@ -538,8 +538,18 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     if (visible) el.textContent=text;
   }
 
+  async function fetchWithTimeout(url, options={}, timeoutMs=5000) {
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),timeoutMs);
+    try {
+      return await fetch(url,{...options,signal:controller.signal});
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function fetchSharedSnapshot() {
-    const r=await fetch('/api/project',{cache:'no-store'});
+    const r=await fetchWithTimeout('/api/project',{cache:'no-store'},5000);
     if (r.status===401) { location.href='/login'; return null; }
     const data=await r.json().catch(()=>({}));
     if (r.status===503) {
@@ -595,11 +605,11 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     let payload=projectForShared(state.project);
     try {
       for (let attempt=0; attempt<2; attempt++) {
-        const r=await fetch('/api/project',{
+        const r=await fetchWithTimeout('/api/project',{
           method:'PUT',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({project:payload,baseRevision:state.sharedRevision})
-        });
+        },8000);
         if (r.status===401) { location.href='/login'; return false; }
         const data=await r.json().catch(()=>({}));
         if (r.status===503) {
@@ -1428,11 +1438,18 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     setupNetwork();
     setupPwa();
     bindActions();
-    await setupSecureHostIdentity();
-    await restoreCustomFonts();
-    await loadSharedAtStartup();
+
+    // Render the usable local interface immediately. Remote sync must never block the app.
     renderAllEditors();
     maybeSnapshot(true);
+
+    await setupSecureHostIdentity();
+    await restoreCustomFonts();
+    renderPreview();
+
+    await loadSharedAtStartup();
+    renderAllEditors();
+
     await restoreCloudHandle();
     startSharedPolling();
   }
