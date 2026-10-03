@@ -143,7 +143,8 @@ function redirect(res, location) {
 function loginPage(error = '') {
   let html = fs.readFileSync(path.join(ROOT, 'login.html'), 'utf8');
   const safe = String(error).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  return html.replace('{{ERROR}}', safe);
+  const block = safe ? '<div class="error">'+safe+'</div>' : '';
+  return html.replaceAll('{{ERROR}}', block);
 }
 function parseBody(req) {
   return new Promise((resolve, reject) => {
