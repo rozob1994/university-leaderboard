@@ -11,6 +11,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@libsql/client": "^0.18.0"
+    "@libsql/client": "^0.18.0",
+    "pg": "^8.13.1"
   }
 }
