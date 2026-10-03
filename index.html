@@ -1117,7 +1117,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   function setupPwa(){if('serviceWorker' in navigator && location.protocol!=='file:')navigator.serviceWorker.register('./service-worker.js').catch(console.warn);window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.installPrompt=e;$('installBtn').hidden=false;});$('installBtn').addEventListener('click',async()=>{if(!state.installPrompt)return;state.installPrompt.prompt();await state.installPrompt.userChoice;state.installPrompt=null;$('installBtn').hidden=true;});}
 
   function bindActions(){
-    $('addAssignmentBtn').addEventListener('click',addAssignment);$('addStudentBtn').addEventListener('click',addStudent);
+    $('addAssignmentBtn').addEventListener('click',addAssignment);$('addStudentBtn').addEventListener('click',()=>addStudent());
     $('clearScoresBtn').addEventListener('click',()=>{if(!confirm('همهٔ نمره‌های کلاس '+classDayFa(activeClassDay())+' پاک شوند؟'))return;for(const s of sortedStudents())for(const a of state.project.assignments)state.project.scores[s.id][a.id]=null;markDirty('نمره‌های کلاس پاک شدند');renderScoresEditor();renderPreview();});
     $('downloadProjectBtn').addEventListener('click',downloadProject);$('topDownloadProjectBtn').addEventListener('click',downloadProject);
     $('topImportProjectBtn').addEventListener('click',()=>$('topImportProjectInput').click());
