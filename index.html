@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b566b">
+  <title>University Leaderboard v3</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  
+  
+  <style>:root {
+  color-scheme: light;
+  --bg: #f5f6f7;
+  --panel: #ffffff;
+  --text: #1e2428;
+  --muted: #6d747a;
+  --border: #dde1e4;
+  --accent: #0b566b;
+  --accent-2: #0e6b82;
+  --danger: #9f2f37;
+  --danger-bg: #fff0f1;
+  --shadow: 0 8px 28px rgba(19, 32, 39, 0.08);
+}
+* { box-sizing: border-box; }
+html { font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--text); }
+body { margin: 0; min-width: 320px; }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  padding: 18px 24px; background: #fff; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 20;
+}
+.topbar h1 { margin: 1px 0 0; font-size: 22px; letter-spacing: -0.02em; }
+.eyebrow { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.top-actions, .button-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.button-row.compact { gap: 6px; }
+.status-pill { padding: 7px 10px; border-radius: 999px; background: #eef6f4; color: #266257; font-size: 12px; }
+.btn {
+  min-height: 40px; padding: 9px 13px; border: 1px solid var(--accent); border-radius: 9px;
+  background: var(--accent); color: #fff; font-weight: 600;
+}
+.btn:hover { background: var(--accent-2); }
+.btn.ghost { background: #fff; color: var(--text); border-color: var(--border); }
+.btn.ghost:hover { background: #f7f8f9; }
+.btn.danger { background: var(--danger); border-color: var(--danger); }
+.btn.danger:hover { filter: brightness(.95); }
+.btn.small { min-height: 34px; padding: 6px 10px; font-size: 13px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.file-btn { position: relative; overflow: hidden; }
+.file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.offline-banner, .warning-banner { padding: 10px 24px; font-size: 13px; }
+.offline-banner { background: #fff3cc; color: #634f00; border-bottom: 1px solid #ead992; }
+.warning-banner { background: #fff0f1; color: #7e2228; border-bottom: 1px solid #f1c6c9; }
+.workspace {
+  display: grid; grid-template-columns: minmax(540px, 0.85fr) minmax(620px, 1.15fr);
+  gap: 14px; padding: 14px; align-items: start;
+}
+.editor-panel, .preview-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); min-width: 0; }
+.editor-panel { overflow: hidden; }
+.preview-panel { position: sticky; top: 88px; }
+.tabs { display: flex; gap: 0; overflow-x: auto; border-bottom: 1px solid var(--border); background: #fafbfb; }
+.tab { border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 13px 14px; color: var(--muted); white-space: nowrap; }
+.tab.active { color: var(--text); border-bottom-color: var(--accent); background: #fff; font-weight: 700; }
+.tab-page { display: none; padding: 16px; }
+.tab-page.active { display: block; }
+.section-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.section-head h2 { margin: 0 0 4px; font-size: 18px; }
+.section-head p, .card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.table-wrap { overflow: auto; max-height: calc(100vh - 230px); border: 1px solid var(--border); border-radius: 10px; }
+table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 13px; }
+th, td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 5px 7px; background: #fff; }
+th { background: #f6f7f8; position: sticky; top: 0; z-index: 2; text-align: left; font-weight: 700; }
+th:first-child, td:first-child { position: sticky; left: 0; z-index: 3; }
+th:nth-child(2), td:nth-child(2) { position: sticky; left: 56px; z-index: 3; }
+th:first-child, th:nth-child(2) { z-index: 4; }
+td:first-child, td:nth-child(2) { background: #fbfbfb; }
+.score-input { width: 72px; min-height: 34px; border: 1px solid #d5d9dc; border-radius: 7px; padding: 6px 7px; text-align: center; }
+.score-input:focus, .text-input:focus, .number-input:focus, select:focus { outline: 2px solid rgba(11,86,107,.25); border-color: var(--accent); }
+.group-cell { width: 56px; text-align: center; font-weight: 700; }
+.student-cell { min-width: 150px; direction: rtl; text-align: right; font-family: Doran, Tahoma, Arial, sans-serif; }
+.assignments-table, .students-table { width: 100%; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.assignments-table table, .students-table table { width: 100%; }
+.assignments-table th, .assignments-table td, .students-table th, .students-table td { position: static; }
+.text-input, .number-input, .settings-grid input, .settings-grid select {
+  width: 100%; min-height: 38px; border: 1px solid #d5d9dc; border-radius: 8px; padding: 7px 9px; background: #fff;
+}
+.assignment-name { direction: rtl; text-align: right; font-family: Kalameh, Tahoma, Arial, sans-serif; }
+.color-row { display: flex; gap: 8px; align-items: center; }
+.color-row input[type=color] { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+.color-row input[type=text] { width: 96px; }
+.icon-chip { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 8px; background: #fafafa; color: #50575c; }
+.settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.setting-card { border: 1px solid var(--border); border-radius: 10px; padding: 11px; }
+.setting-card label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.backup-grid { display: grid; gap: 12px; }
+.card { border: 1px solid var(--border); border-radius: 11px; padding: 14px; }
+.card h3 { margin: 0 0 6px; font-size: 15px; }
+.card .button-row { margin-top: 12px; }
+.strong-card { border-color: #efc9cc; background: #fffafa; }
+.history-row { display: flex; gap: 8px; margin-top: 12px; }
+.history-row select { min-width: 0; flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
+.muted { color: var(--muted); font-size: 12px; }
+.preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.preview-toolbar strong { display: block; font-size: 14px; }
+.preview-scroller { overflow: auto; max-height: calc(100vh - 150px); padding: 12px; background: #e9ecee; border-radius: 0 0 14px 14px; }
+#leaderboardCanvas { display: block; max-width: none; background: #f7f7f7; box-shadow: 0 2px 10px rgba(0,0,0,.09); transform-origin: top left; }
+.footer-note { padding: 4px 16px 18px; color: var(--muted); font-size: 11px; text-align: center; }
+.danger-text { color: #9f2f37; }
+.confidence-low { background: #fff4f4 !important; }
+.confidence-medium { background: #fffaf0 !important; }
+.row-actions { display: flex; gap: 6px; }
+.row-actions button { min-width: 32px; min-height: 32px; border: 1px solid var(--border); border-radius: 7px; background: #fff; }
+.row-actions button:hover { background: #f5f6f7; }
+@media (max-width: 1180px) {
+  .workspace { grid-template-columns: 1fr; }
+  .preview-panel { position: static; order: -1; }
+  .preview-scroller { max-height: 620px; }
+  .table-wrap { max-height: 600px; }
+}
+@media (max-width: 660px) {
+  .topbar { align-items: flex-start; padding: 14px; }
+  .top-actions { justify-content: flex-end; }
+  .workspace { padding: 8px; }
+  .tab-page { padding: 12px; }
+  .settings-grid { grid-template-columns: 1fr; }
+  .section-head { flex-direction: column; }
+  .topbar h1 { font-size: 19px; }
+  .status-pill { display: none; }
+}
+@media print {
+  body > *:not(.workspace) { display: none !important; }
+  .editor-panel, .preview-toolbar { display: none !important; }
+  .workspace { display: block; padding: 0; }
+  .preview-panel { border: 0; box-shadow: none; }
+  .preview-scroller { overflow: visible; padding: 0; background: #fff; }
+  #leaderboardCanvas { width: 100% !important; height: auto !important; box-shadow: none; }
+}
+.switch-row { display:flex !important; align-items:center; gap:8px; color:var(--text) !important; font-size:14px !important; }
+.switch-row input { width:18px; height:18px; }
+#assignmentsWrap select, #studentsWrap select { min-height:38px; border:1px solid #d5d9dc; border-radius:8px; padding:7px 9px; background:#fff; }
+@media (display-mode: standalone) { .eyebrow { opacity:.75; } }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">University Leaderboard · v3</div>
+      <h1>Live leaderboard</h1>
+    </div>
+    <div class="top-actions">
+      <span id="saveStatus" class="status-pill">Saved locally</span>
+      <button id="installBtn" class="btn ghost" hidden>Install app</button>
+      <button id="emergencyBtn" class="btn danger">Emergency offline backup</button>
+    </div>
+  </header>
+
+  <div id="offlineBanner" class="offline-banner" hidden>You are offline. Editing still works and changes are saved on this device.</div>
+  <div id="fontBanner" class="warning-banner" hidden></div>
+
+  <main class="workspace">
+    <section class="editor-panel">
+      <nav class="tabs" aria-label="Editor sections">
+        <button class="tab active" data-tab="scores">Scores</button>
+        <button class="tab" data-tab="assignments">Assignments</button>
+        <button class="tab" data-tab="students">Students</button>
+        <button class="tab" data-tab="settings">Settings</button>
+        <button class="tab" data-tab="backup">Backup & sync</button>
+      </nav>
+
+      <section id="tab-scores" class="tab-page active">
+        <div class="section-head">
+          <div>
+            <h2>Scores</h2>
+            <p>Scores update the leaderboard instantly. Empty means not graded yet.</p>
+          </div>
+          <button id="clearScoresBtn" class="btn ghost small">Clear all scores</button>
+        </div>
+        <div id="scoresWrap" class="table-wrap"></div>
+      </section>
+
+      <section id="tab-assignments" class="tab-page">
+        <div class="section-head">
+          <div>
+            <h2>Assignments</h2>
+            <p>Edit names, maximum points, and colors. The legend updates live.</p>
+          </div>
+          <button id="addAssignmentBtn" class="btn small">+ Add assignment</button>
+        </div>
+        <div id="assignmentsWrap"></div>
+      </section>
+
+      <section id="tab-students" class="tab-page">
+        <div class="section-head">
+          <div>
+            <h2>Students</h2>
+            <p>Names and group positions are editable. Handwriting uncertainties are still flagged.</p>
+          </div>
+          <button id="addStudentBtn" class="btn small">+ Add student</button>
+        </div>
+        <div id="studentsWrap"></div>
+      </section>
+
+      <section id="tab-settings" class="tab-page">
+        <div class="section-head">
+          <div>
+            <h2>Design & export</h2>
+            <p>These settings affect both the live preview and high-resolution exports.</p>
+          </div>
+        </div>
+        <div id="settingsWrap" class="settings-grid"></div>
+      </section>
+
+      <section id="tab-backup" class="tab-page">
+        <div class="section-head">
+          <div>
+            <h2>Backup & sync</h2>
+            <p>Local autosave is always on. Link a project file inside a synced folder for cross-device use.</p>
+          </div>
+        </div>
+
+        <div class="backup-grid">
+          <article class="card">
+            <h3>Local project</h3>
+            <p>Download or import the full editable project data.</p>
+            <div class="button-row">
+              <button id="downloadProjectBtn" class="btn">Download project</button>
+              <label class="btn ghost file-btn">Import project<input id="importProjectInput" type="file" accept=".json,.leaderboard.json,application/json"></label>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>Cloud-synced project file</h3>
+            <p>On Chrome/Edge desktop, choose a project file inside Google Drive, OneDrive, Dropbox, or another synced folder. Changes auto-save to that file.</p>
+            <div class="button-row">
+              <button id="openCloudBtn" class="btn">Open synced file</button>
+              <button id="createCloudBtn" class="btn ghost">Create synced file</button>
+              <button id="saveCloudBtn" class="btn ghost" disabled>Save now</button>
+              <button id="reloadCloudBtn" class="btn ghost" disabled>Load linked file</button>
+            </div>
+            <div id="cloudStatus" class="muted">No synced project file linked.</div>
+          </article>
+
+          <article class="card">
+            <h3>Revision history</h3>
+            <p>Recent local snapshots let you recover accidental edits on this device.</p>
+            <div class="history-row">
+              <select id="historySelect"></select>
+              <button id="restoreHistoryBtn" class="btn ghost">Restore</button>
+            </div>
+          </article>
+
+          <article class="card strong-card">
+            <h3>Emergency offline backup</h3>
+            <p>Downloads a ZIP containing your editable project, CSV data, high-resolution PNG, PDF, source files, and a standalone HTML app that opens without internet.</p>
+            <button id="emergencyBtn2" class="btn danger">Download complete backup ZIP</button>
+          </article>
+        </div>
+      </section>
+    </section>
+
+    <aside class="preview-panel">
+      <div class="preview-toolbar">
+        <div>
+          <strong>Live preview</strong>
+          <span id="previewMeta" class="muted"></span>
+        </div>
+        <div class="button-row compact">
+          <button id="exportPngBtn" class="btn ghost small">PNG</button>
+          <button id="exportPdfBtn" class="btn ghost small">PDF</button>
+        </div>
+      </div>
+      <div id="previewScroller" class="preview-scroller">
+        <canvas id="leaderboardCanvas"></canvas>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="footer-note">Autosave is local-first. The app remains usable offline after installation or after opening it once on a properly hosted PWA.</footer>
+
+  <script>window.INITIAL_PROJECT={"version":3,"name":"University Leaderboard","modifiedAt":"","settings":{"title":"LEADERBOARD","subtitle":"Semester","capacity":48,"guideInterval":4,"exportScale":3,"pngDpi":300,"groupCircleColor":"#0B566B","background":"#F7F7F7","studentFont":"Doran","assignmentFont":"Kalameh","persianDigits":true},"students":[],"assignments":[{"id":"a1","order":1,"name":"تمرین 1","max":4,"color":"#27B7D7"},{"id":"a2","order":2,"name":"تمرین 2","max":4,"color":"#FDB36B"},{"id":"a3","order":3,"name":"تمرین 3","max":4,"color":"#F57C00"},{"id":"a4","order":4,"name":"تمرین 4","max":4,"color":"#8FB36A"},{"id":"a5","order":5,"name":"تمرین 5","max":4,"color":"#B79BDA"},{"id":"a6","order":6,"name":"تمرین 6","max":4,"color":"#7E94AA"},{"id":"a7","order":7,"name":"تمرین 7","max":4,"color":"#F2C84B"}],"scores":{}};</script>
+  <script>(() => {
+  'use strict';
+
+  const STORAGE_KEY = 'universityLeaderboardV3.project';
+  const HISTORY_KEY = 'universityLeaderboardV3.history';
+  const DB_NAME = 'universityLeaderboardV3';
+  const HANDLE_STORE = 'handles';
+  const HANDLE_KEY = 'cloudProjectHandle';
+  const PALETTE = ['#27B7D7','#FDB36B','#F57C00','#8FB36A','#B79BDA','#7E94AA','#F2C84B','#153E73','#5AA5A0','#D77C8A','#8473C9','#4B8C6A'];
+  const ICONS = ['building','arch','set-square','ruler','plan','compass','column','stairs','cube','window','door','grid'];
+  const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+  const LATIN_DIGITS = '0123456789';
+
+  const $ = (id) => document.getElementById(id);
+  const deepClone = (x) => JSON.parse(JSON.stringify(x));
+  const nowIso = () => new Date().toISOString();
+  const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+  const num = (v, fallback = 0) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
+  const escapeHtml = (s) => String(s ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+  const xmlEsc = (s) => String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[ch]));
+  const toPersianDigits = (value) => String(value).replace(/[0-9]/g, d => PERSIAN_DIGITS[d]);
+  const toLatinDigits = (value) => String(value).replace(/[۰-۹]/g, d => LATIN_DIGITS[PERSIAN_DIGITS.indexOf(d)]);
+  const dispNum = (value) => state.project.settings.persianDigits ? toPersianDigits(value) : String(value);
+  const fmt = (n) => Number.isInteger(Number(n)) ? String(Number(n)) : String(Number(n).toFixed(2)).replace(/0+$/,'').replace(/\.$/,'');
+
+  const state = {
+    project: null,
+    dirty: false,
+    cloudHandle: null,
+    cloudPermission: 'none',
+    lastCloudWrite: 0,
+    renderTimer: null,
+    saveTimer: null,
+    snapshotTimer: null,
+    installPrompt: null,
+    pngCache: null,
+    pdfCache: null,
+  };
+
+  function normalizeProject(project) {
+    const p = deepClone(project || window.INITIAL_PROJECT || {});
+    p.version = 3;
+    p.name = p.name || 'University Leaderboard';
+    p.modifiedAt = p.modifiedAt || nowIso();
+    p.settings = Object.assign({
+      title:'LEADERBOARD', subtitle:'Semester', capacity:48, guideInterval:4,
+      exportScale:3, pngDpi:300, groupCircleColor:'#0B566B', background:'#F7F7F7',
+      studentFont:'Doran', assignmentFont:'Kalameh', persianDigits:true
+    }, p.settings || {});
+    p.students = Array.isArray(p.students) ? p.students : [];
+    p.assignments = Array.isArray(p.assignments) ? p.assignments : [];
+    p.scores = p.scores || {};
+    p.students.forEach((s, i) => {
+      s.id = s.id || `s${Date.now()}_${i}`;
+      s.group = Math.max(1, Math.round(num(s.group, 1)));
+      s.order = Math.max(1, Math.round(num(s.order, i + 1)));
+      s.name = String(s.name || `Student ${i+1}`);
+      s.confidence = s.confidence || 'high';
+      s.note = s.note || '';
+      p.scores[s.id] = p.scores[s.id] || {};
+    });
+    p.assignments.forEach((a, i) => {
+      a.id = a.id || `a${Date.now()}_${i}`;
+      a.order = i + 1;
+      a.name = String(a.name || `Assignment ${i+1}`);
+      a.max = Math.max(0.25, num(a.max, 4));
+      a.color = /^#[0-9A-Fa-f]{6}$/.test(a.color || '') ? a.color.toUpperCase() : PALETTE[i % PALETTE.length];
+      p.students.forEach(s => {
+        if (!(a.id in p.scores[s.id])) p.scores[s.id][a.id] = null;
+      });
+    });
+    for (const sid of Object.keys(p.scores)) {
+      if (!p.students.some(s => s.id === sid)) delete p.scores[sid];
+    }
+    return p;
+  }
+
+  function loadProject() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return normalizeProject(JSON.parse(raw));
+    } catch (e) {
+      console.warn('Could not load local project', e);
+    }
+    return normalizeProject(window.INITIAL_PROJECT);
+  }
+
+  function markDirty(reason = 'Edited') {
+    state.project.modifiedAt = nowIso();
+    state.dirty = true;
+    $('saveStatus').textContent = reason + ' · saving…';
+    clearTimeout(state.saveTimer);
+    state.saveTimer = setTimeout(saveLocal, 220);
+    clearTimeout(state.renderTimer);
+    state.renderTimer = setTimeout(renderPreview, 70);
+    state.pngCache = null;
+    state.pdfCache = null;
+  }
+
+  async function saveLocal() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.project));
+      state.dirty = false;
+      $('saveStatus').textContent = 'Saved locally';
+      maybeSnapshot();
+      await autosaveCloud();
+    } catch (e) {
+      $('saveStatus').textContent = 'Local save failed';
+      console.error(e);
+    }
+  }
+
+  function history() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+    catch { return []; }
+  }
+
+  function maybeSnapshot(force = false) {
+    const h = history();
+    const last = h[0];
+    const now = Date.now();
+    if (!force && last && (now - Date.parse(last.at)) < 5 * 60 * 1000) return;
+    h.unshift({at: nowIso(), project: deepClone(state.project)});
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, 20)));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const sel = $('historySelect');
+    const h = history();
+    sel.innerHTML = h.length ? h.map((x,i) => `<option value="${i}">${new Date(x.at).toLocaleString()} · ${escapeHtml(x.project.name || 'Leaderboard')}</option>`).join('') : '<option>No snapshots yet</option>';
+    $('restoreHistoryBtn').disabled = !h.length;
+  }
+
+  function renderAllEditors() {
+    renderScoresEditor();
+    renderAssignmentsEditor();
+    renderStudentsEditor();
+    renderSettingsEditor();
+    renderHistory();
+    renderPreview();
+    updateFontWarning();
+  }
+
+  function sortedStudents() {
+    return [...state.project.students].sort((a,b) => a.group - b.group || a.order - b.order || a.name.localeCompare(b.name));
+  }
+
+  function sortedAssignments() {
+    return [...state.project.assignments].sort((a,b) => a.order - b.order);
+  }
+
+  function renderScoresEditor() {
+    const students = sortedStudents();
+    const assignments = sortedAssignments();
+    let html = '<table><thead><tr><th>Group</th><th>Student</th>';
+    for (const a of assignments) html += `<th title="${escapeHtml(a.name)}"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${a.color};margin-right:5px"></span>${escapeHtml(a.name)}</th>`;
+    html += '</tr></thead><tbody>';
+    for (const s of students) {
+      html += `<tr><td class="group-cell">${escapeHtml(dispNum(s.group))}</td><td class="student-cell">${escapeHtml(s.name)}</td>`;
+      for (const a of assignments) {
+        const v = state.project.scores[s.id]?.[a.id];
+        html += `<td><input class="score-input" inputmode="decimal" data-student="${s.id}" data-assignment="${a.id}" value="${v == null ? '' : escapeHtml(fmt(v))}" aria-label="${escapeHtml(s.name)} ${escapeHtml(a.name)}" placeholder="—"></td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    $('scoresWrap').innerHTML = html;
+    $('scoresWrap').querySelectorAll('.score-input').forEach(input => {
+      input.addEventListener('input', () => {
+        const sid = input.dataset.student, aid = input.dataset.assignment;
+        const a = state.project.assignments.find(x => x.id === aid);
+        let txt = toLatinDigits(input.value.trim()).replace(',', '.');
+        if (txt === '') state.project.scores[sid][aid] = null;
+        else {
+          let v = num(txt, NaN);
+          if (!Number.isFinite(v)) return;
+          v = clamp(v, 0, a.max);
+          state.project.scores[sid][aid] = v;
+        }
+        markDirty('Score changed');
+      });
+      input.addEventListener('blur', () => {
+        const sid = input.dataset.student, aid = input.dataset.assignment;
+        const v = state.project.scores[sid][aid];
+        input.value = v == null ? '' : fmt(v);
+      });
+    });
+  }
+
+  function renderAssignmentsEditor() {
+    const assignments = sortedAssignments();
+    let html = '<div class="assignments-table"><table><thead><tr><th>#</th><th>Architecture icon</th><th>Assignment title</th><th>Max</th><th>Color</th><th></th></tr></thead><tbody>';
+    assignments.forEach((a, i) => {
+      html += `<tr data-id="${a.id}"><td>${escapeHtml(dispNum(i+1))}</td><td><span class="icon-chip">${iconSvg(ICONS[i % ICONS.length])}</span></td>`+
+        `<td><input class="text-input assignment-name" data-field="name" value="${escapeHtml(a.name)}"></td>`+
+        `<td><input class="number-input" data-field="max" inputmode="decimal" value="${escapeHtml(fmt(a.max))}"></td>`+
+        `<td><div class="color-row"><input type="color" data-field="colorPicker" value="${a.color}"><input type="text" data-field="color" value="${a.color}" maxlength="7"></div></td>`+
+        `<td><div class="row-actions"><button type="button" data-act="up" title="Move up">↑</button><button type="button" data-act="down" title="Move down">↓</button><button type="button" data-act="delete" title="Delete">×</button></div></td></tr>`;
+    });
+    html += '</tbody></table></div>';
+    $('assignmentsWrap').innerHTML = html;
+    $('assignmentsWrap').querySelectorAll('tr[data-id]').forEach(row => {
+      const id = row.dataset.id;
+      const a = state.project.assignments.find(x => x.id === id);
+      row.querySelector('[data-field=name]').addEventListener('input', e => { a.name = e.target.value || 'Untitled'; markDirty('Assignment renamed'); renderScoresEditor(); });
+      row.querySelector('[data-field=max]').addEventListener('change', e => {
+        a.max = Math.max(.25, num(toLatinDigits(e.target.value).replace(',','.'), 4)); e.target.value = fmt(a.max);
+        for (const s of state.project.students) { const v = state.project.scores[s.id][a.id]; if (v != null) state.project.scores[s.id][a.id] = Math.min(v, a.max); }
+        markDirty('Assignment max changed'); renderScoresEditor();
+      });
+      const colorText = row.querySelector('[data-field=color]');
+      const colorPicker = row.querySelector('[data-field=colorPicker]');
+      const applyColor = (v) => {
+        if (!/^#[0-9A-Fa-f]{6}$/.test(v)) return;
+        a.color = v.toUpperCase(); colorText.value = a.color; colorPicker.value = a.color;
+        markDirty('Assignment color changed'); renderScoresEditor();
+      };
+      colorText.addEventListener('change', e => applyColor(e.target.value));
+      colorPicker.addEventListener('input', e => applyColor(e.target.value));
+      row.querySelector('[data-act=up]').addEventListener('click', () => moveAssignment(id, -1));
+      row.querySelector('[data-act=down]').addEventListener('click', () => moveAssignment(id, 1));
+      row.querySelector('[data-act=delete]').addEventListener('click', () => deleteAssignment(id));
+    });
+  }
+
+  function moveAssignment(id, delta) {
+    const arr = sortedAssignments();
+    const i = arr.findIndex(a => a.id === id), j = i + delta;
+    if (i < 0 || j < 0 || j >= arr.length) return;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    arr.forEach((a, k) => a.order = k + 1);
+    state.project.assignments = arr;
+    markDirty('Assignment order changed'); renderAssignmentsEditor(); renderScoresEditor();
+  }
+
+  function deleteAssignment(id) {
+    const a = state.project.assignments.find(x => x.id === id);
+    if (!a || state.project.assignments.length <= 1) return;
+    if (!confirm(`Delete “${a.name}” and all its scores?`)) return;
+    state.project.assignments = state.project.assignments.filter(x => x.id !== id);
+    state.project.assignments.forEach((x,i) => x.order = i + 1);
+    for (const s of state.project.students) delete state.project.scores[s.id][id];
+    markDirty('Assignment deleted'); renderAssignmentsEditor(); renderScoresEditor();
+  }
+
+  function addAssignment() {
+    const n = state.project.assignments.length + 1;
+    const id = 'a_' + Date.now().toString(36);
+    state.project.assignments.push({id, order:n, name:`تمرین ${toPersianDigits(n)}`, max:4, color:PALETTE[(n-1)%PALETTE.length]});
+    for (const s of state.project.students) state.project.scores[s.id][id] = null;
+    markDirty('Assignment added'); renderAssignmentsEditor(); renderScoresEditor();
+  }
+
+  function renderStudentsEditor() {
+    const students = sortedStudents();
+    let html = '<div class="students-table"><table><thead><tr><th>Group</th><th>Order</th><th>Name</th><th>Transcription</th><th>Note</th><th></th></tr></thead><tbody>';
+    students.forEach(s => {
+      html += `<tr data-id="${s.id}" class="confidence-${escapeHtml(s.confidence)}">`+
+        `<td><input class="number-input" data-field="group" value="${s.group}"></td>`+
+        `<td><input class="number-input" data-field="order" value="${s.order}"></td>`+
+        `<td><input class="text-input assignment-name" data-field="name" value="${escapeHtml(s.name)}"></td>`+
+        `<td><select data-field="confidence"><option value="high" ${s.confidence==='high'?'selected':''}>Confirmed</option><option value="medium" ${s.confidence==='medium'?'selected':''}>Check</option><option value="low" ${s.confidence==='low'?'selected':''}>Uncertain</option></select></td>`+
+        `<td><input class="text-input" data-field="note" value="${escapeHtml(s.note)}"></td>`+
+        `<td><div class="row-actions"><button type="button" data-act="delete" title="Delete">×</button></div></td></tr>`;
+    });
+    html += '</tbody></table></div>';
+    $('studentsWrap').innerHTML = html;
+    $('studentsWrap').querySelectorAll('tr[data-id]').forEach(row => {
+      const s = state.project.students.find(x => x.id === row.dataset.id);
+      for (const f of ['group','order','name','note','confidence']) {
+        row.querySelector(`[data-field=${f}]`).addEventListener(f === 'name' || f === 'note' ? 'input' : 'change', e => {
+          if (f === 'group' || f === 'order') s[f] = Math.max(1, Math.round(num(toLatinDigits(e.target.value), s[f])));
+          else s[f] = e.target.value;
+          markDirty('Student changed');
+          if (f !== 'note') renderScoresEditor();
+        });
+      }
+      row.querySelector('[data-act=delete]').addEventListener('click', () => deleteStudent(s.id));
+    });
+  }
+
+  function addStudent() {
+    const students = sortedStudents();
+    const maxGroup = students.length ? Math.max(...students.map(s => s.group)) : 1;
+    const group = maxGroup;
+    const order = students.filter(s => s.group === group).length + 1;
+    const id = 's_' + Date.now().toString(36);
+    state.project.students.push({id, group, order, name:'دانشجوی جدید', confidence:'high', note:''});
+    state.project.scores[id] = Object.fromEntries(state.project.assignments.map(a => [a.id, null]));
+    markDirty('Student added'); renderStudentsEditor(); renderScoresEditor();
+  }
+
+  function deleteStudent(id) {
+    const s = state.project.students.find(x => x.id === id); if (!s) return;
+    if (!confirm(`Delete ${s.name} and all scores?`)) return;
+    state.project.students = state.project.students.filter(x => x.id !== id); delete state.project.scores[id];
+    markDirty('Student deleted'); renderStudentsEditor(); renderScoresEditor();
+  }
+
+  function renderSettingsEditor() {
+    const s = state.project.settings;
+    const fields = [
+      ['title','Title','text'], ['subtitle','Subtitle','text'], ['capacity','Chart capacity','number'], ['guideInterval','Guide interval','number'],
+      ['exportScale','Export scale','number'], ['pngDpi','PNG / PDF DPI','number'], ['groupCircleColor','Group circle','color'], ['background','Background','color'],
+      ['studentFont','Student name font','text'], ['assignmentFont','Assignment title font','text'], ['persianDigits','Persian digits','checkbox']
+    ];
+    $('settingsWrap').innerHTML = fields.map(([key,label,type]) => {
+      if (type === 'checkbox') return `<div class="setting-card"><label>${label}</label><label class="switch-row"><input id="setting_${key}" type="checkbox" ${s[key]?'checked':''}> Enabled</label></div>`;
+      if (type === 'color') return `<div class="setting-card"><label for="setting_${key}">${label}</label><input id="setting_${key}" type="color" value="${escapeHtml(s[key])}"></div>`;
+      return `<div class="setting-card"><label for="setting_${key}">${label}</label><input id="setting_${key}" type="${type}" value="${escapeHtml(s[key])}" ${type==='number'?'step="0.25"':''}></div>`;
+    }).join('');
+    fields.forEach(([key,,type]) => {
+      const el = $(`setting_${key}`);
+      el.addEventListener(type === 'text' ? 'input' : 'change', () => {
+        if (type === 'checkbox') s[key] = el.checked;
+        else if (type === 'number') s[key] = Math.max(key === 'exportScale' ? 1 : 1, num(el.value, s[key]));
+        else s[key] = el.value;
+        markDirty('Settings changed');
+        if (key === 'studentFont' || key === 'assignmentFont') updateFontWarning();
+        if (key === 'persianDigits') { renderScoresEditor(); renderAssignmentsEditor(); }
+      });
+    });
+  }
+
+  function updateFontWarning() {
+    const s = state.project.settings;
+    if (!document.fonts?.check) return;
+    const missing = [];
+    if (!document.fonts.check(`14px "${s.studentFont}"`)) missing.push(s.studentFont);
+    if (!document.fonts.check(`14px "${s.assignmentFont}"`)) missing.push(s.assignmentFont);
+    const b = $('fontBanner');
+    if (missing.length) {
+      b.hidden = false;
+      b.textContent = `Font warning: ${missing.join(' and ')} not detected on this device. The app will use a fallback until you install the font locally.`;
+    } else b.hidden = true;
+  }
+
+  function roundRect(ctx, x,y,w,h,r) {
+    r = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  }
+
+  function drawArchitectureIcon(ctx, type, cx, cy, size, color = '#555') {
+    ctx.save(); ctx.translate(cx,cy); ctx.strokeStyle = color; ctx.fillStyle = 'transparent'; ctx.lineWidth = Math.max(1.2, size * .08); ctx.lineCap='round'; ctx.lineJoin='round';
+    const s=size, h=s/2;
+    ctx.beginPath();
+    if (type==='building') { ctx.rect(-h*.65,-h*.75,s*.65,s*1.5); ctx.moveTo(-h*.45,-h*.35);ctx.lineTo(-h*.2,-h*.35);ctx.moveTo(-h*.45,0);ctx.lineTo(-h*.2,0);ctx.moveTo(-h*.45,h*.35);ctx.lineTo(-h*.2,h*.35);ctx.moveTo(h*.08,-h*.15);ctx.lineTo(h*.35,-h*.15);ctx.lineTo(h*.35,h*.75); }
+    else if (type==='arch') { ctx.moveTo(-h*.75,h*.7);ctx.lineTo(-h*.75,-h*.05);ctx.bezierCurveTo(-h*.75,-h*.85,h*.75,-h*.85,h*.75,-h*.05);ctx.lineTo(h*.75,h*.7);ctx.moveTo(-h*.95,h*.7);ctx.lineTo(h*.95,h*.7); }
+    else if (type==='set-square') { ctx.moveTo(-h*.75,h*.7);ctx.lineTo(h*.7,h*.7);ctx.lineTo(-h*.75,-h*.7);ctx.closePath();ctx.moveTo(-h*.38,h*.3);ctx.lineTo(h*.05,h*.3);ctx.lineTo(-h*.38,-h*.13);ctx.closePath(); }
+    else if (type==='ruler') { ctx.rect(-h*.9,-h*.35,s*.9,s*.35); for(let i=-3;i<=3;i++){ctx.moveTo(i*s*.11,-h*.35);ctx.lineTo(i*s*.11,-h*.08+(i%2?0:h*.1));} }
+    else if (type==='plan') { ctx.rect(-h*.8,-h*.7,s*.8,s*1.4);ctx.moveTo(0,-h*.7);ctx.lineTo(0,h*.1);ctx.lineTo(h*.8,h*.1);ctx.moveTo(-h*.8,0);ctx.lineTo(-h*.1,0);ctx.moveTo(-h*.1,0);ctx.lineTo(-h*.1,h*.7); }
+    else if (type==='compass') { ctx.arc(0,-h*.45,h*.18,0,Math.PI*2);ctx.moveTo(-h*.1,-h*.28);ctx.lineTo(-h*.65,h*.7);ctx.moveTo(h*.1,-h*.28);ctx.lineTo(h*.65,h*.7);ctx.moveTo(-h*.37,h*.15);ctx.lineTo(h*.37,h*.15); }
+    else if (type==='column') { ctx.moveTo(-h*.65,-h*.65);ctx.lineTo(h*.65,-h*.65);ctx.moveTo(-h*.5,-h*.45);ctx.lineTo(h*.5,-h*.45);ctx.rect(-h*.35,-h*.45,h*.7,h*.95);ctx.moveTo(-h*.6,h*.55);ctx.lineTo(h*.6,h*.55);ctx.moveTo(-h*.75,h*.72);ctx.lineTo(h*.75,h*.72); }
+    else if (type==='stairs') { ctx.moveTo(-h*.75,h*.65);ctx.lineTo(-h*.35,h*.65);ctx.lineTo(-h*.35,h*.25);ctx.lineTo(h*.05,h*.25);ctx.lineTo(h*.05,-h*.15);ctx.lineTo(h*.45,-h*.15);ctx.lineTo(h*.45,-h*.55);ctx.lineTo(h*.8,-h*.55); }
+    else if (type==='cube') { ctx.moveTo(0,-h*.75);ctx.lineTo(h*.65,-h*.35);ctx.lineTo(h*.65,h*.4);ctx.lineTo(0,h*.75);ctx.lineTo(-h*.65,h*.4);ctx.lineTo(-h*.65,-h*.35);ctx.closePath();ctx.moveTo(0,-h*.75);ctx.lineTo(0,0);ctx.lineTo(h*.65,-h*.35);ctx.moveTo(0,0);ctx.lineTo(-h*.65,-h*.35); }
+    else if (type==='window') { ctx.rect(-h*.7,-h*.7,s*.7,s*.7);ctx.moveTo(0,-h*.7);ctx.lineTo(0,h*.7);ctx.moveTo(-h*.7,0);ctx.lineTo(h*.7,0); }
+    else if (type==='door') { ctx.rect(-h*.55,-h*.75,s*.55,s*1.5);ctx.arc(h*.25,h*.05,h*.05,0,Math.PI*2); }
+    else { for(let i=-1;i<=1;i++){ctx.moveTo(-h*.7,i*h*.5);ctx.lineTo(h*.7,i*h*.5);ctx.moveTo(i*h*.5,-h*.7);ctx.lineTo(i*h*.5,h*.7);} }
+    ctx.stroke(); ctx.restore();
+  }
+
+  function iconSvg(type) {
+    const paths = {
+      building:'<path d="M6 20V5h8v15M8 8h2m-2 4h2m-2 4h2m4-7h4v11M5 20h15"/>',
+      arch:'<path d="M5 20V11a7 7 0 0 1 14 0v9M3 20h18"/>',
+      'set-square':'<path d="M4 20h16L4 4v16Zm4-4h5l-5-5v5Z"/>',
+      ruler:'<path d="M3 9h18v7H3zM7 9v3m4-3v2m4-2v3m4-3v2"/>',
+      plan:'<path d="M4 4h16v16H4zM12 4v9h8M4 12h6v8"/>',
+      compass:'<circle cx="12" cy="6" r="2"/><path d="m11 8-5 12m7-12 5 12M8 14h8"/>',
+      column:'<path d="M5 4h14M7 6h10M8 6v12m8-12v12M6 18h12M4 20h16"/>',
+      stairs:'<path d="M4 19h4v-4h4v-4h4V7h4"/>',
+      cube:'<path d="m12 3 7 4v9l-7 5-7-5V7l7-4Zm0 0v9m7-5-7 5-7-5m7 5v9"/>',
+      window:'<path d="M4 4h16v16H4zM12 4v16M4 12h16"/>',
+      door:'<path d="M6 21V3h12v18M15 12h.01"/>',
+      grid:'<path d="M5 5h14v14H5zM5 10h14M5 15h14M10 5v14M15 5v14"/>'
+    };
+    return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[type] || paths.grid}</svg>`;
+  }
+
+  function renderLeaderboardCanvas(scale = 1) {
+    const p = state.project;
+    const assignments = sortedAssignments();
+    const students = sortedStudents();
+    const groupsMap = new Map();
+    students.forEach(s => { if(!groupsMap.has(s.group)) groupsMap.set(s.group, []); groupsMap.get(s.group).push(s); });
+    const groups = [...groupsMap.entries()].sort((a,b)=>a[0]-b[0]);
+    const maxMembers = Math.max(1, ...groups.map(([,ss])=>ss.length));
+    const totalMax = assignments.reduce((sum,a)=>sum+a.max,0);
+    const nCells = Math.max(Math.ceil(num(p.settings.capacity,48)), Math.ceil(totalMax));
+    const guide = Math.max(1, Math.round(num(p.settings.guideInterval,4)));
+    const S = v => v * scale;
+    const cellW=S(10), cellH=S(10), gapY=S(3), pitch=cellH+gapY, studentGap=S(8);
+    const panelW=Math.max(S(82),maxMembers*cellW+(maxMembers-1)*studentGap+S(34));
+    const groupGap=S(6), leftMargin=S(58), rightMargin=S(28), topMargin=S(96), panelHeader=S(58), nameH=S(92), bottomGroupH=S(120), legendW=S(330), legendGap=S(34);
+    const cellsTop=topMargin+panelHeader, plotH=nCells*pitch-gapY, cellsBottom=cellsTop+plotH, namesTop=cellsBottom+S(10), panelBottom=namesTop+nameH+bottomGroupH, panelTop=topMargin;
+    const panelsW=groups.length*panelW+Math.max(0,groups.length-1)*groupGap, legendX=leftMargin+panelsW+legendGap, width=legendX+legendW+rightMargin, height=panelBottom+S(30);
+    const canvas=document.createElement('canvas'); canvas.width=Math.ceil(width); canvas.height=Math.ceil(height); const ctx=canvas.getContext('2d');
+    const bg=p.settings.background || '#F7F7F7'; ctx.fillStyle=bg; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const fontStudent = p.settings.studentFont || 'Doran'; const fontAssignment = p.settings.assignmentFont || 'Kalameh';
+    ctx.textBaseline='middle'; ctx.textAlign='center'; ctx.fillStyle='#474747'; ctx.font=`${S(14)}px Arial, sans-serif`; ctx.fillText(p.settings.title || 'LEADERBOARD',width/2,S(30));
+    if(p.settings.subtitle){ctx.fillStyle='#5A5A5A';ctx.font=`${S(11)}px Arial, sans-serif`;ctx.fillText(p.settings.subtitle,width/2,S(50));}
+    ctx.save();ctx.setLineDash([S(4),S(4)]);ctx.strokeStyle='#D3D3D3';ctx.lineWidth=Math.max(1,S(1));
+    for(let pts=0;pts<=nCells;pts+=guide){let y=cellsBottom-pts*pitch;if(pts===nCells)y=cellsTop;ctx.beginPath();ctx.moveTo(leftMargin-S(10),y);ctx.lineTo(leftMargin+panelsW+S(10),y);ctx.stroke();} ctx.restore();
+    let cursor=0;assignments.forEach((a,i)=>{cursor+=a.max;const y=cellsBottom-cursor*pitch;drawArchitectureIcon(ctx,ICONS[i%ICONS.length],S(27),y,S(18),'#54595d');});
+    groups.forEach(([gid,members],gi)=>{
+      const x0=leftMargin+gi*(panelW+groupGap),x1=x0+panelW;
+      ctx.fillStyle='#EFEFEF';roundRect(ctx,x0+S(3),panelTop+S(4),panelW,panelBottom-panelTop,panelW/2);ctx.fill();
+      ctx.fillStyle='#FBFBFB';ctx.strokeStyle='#EFEFEF';ctx.lineWidth=Math.max(1,S(1));roundRect(ctx,x0,panelTop,panelW,panelBottom-panelTop,panelW/2);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#535353';ctx.font=`${S(11)}px "${fontStudent}", Tahoma, Arial, sans-serif`;ctx.textAlign='center';ctx.fillText(dispNum(gid),(x0+x1)/2,panelTop+S(26));
+      const usable=members.length*cellW+Math.max(0,members.length-1)*studentGap,sx=x0+(panelW-usable)/2;
+      members.forEach((student,mi)=>{
+        const colX=sx+mi*(cellW+studentGap);const intervals=[];let running=0;
+        assignments.forEach(a=>{const raw=p.scores[student.id]?.[a.id];const sc=raw==null?0:clamp(num(raw,0),0,a.max);if(sc>1e-9)intervals.push([running,running+sc,a.color]);running+=sc;});
+        for(let cell=0;cell<nCells;cell++){
+          const yTop=cellsBottom-(cell+1)*pitch+gapY,yBottom=yTop+cellH,r=S(3);
+          ctx.fillStyle='#FAFAFA';ctx.strokeStyle='#707070';ctx.lineWidth=Math.max(1,S(1));roundRect(ctx,colX,yTop,cellW,cellH,r);ctx.fill();ctx.stroke();
+          const pad=Math.max(S(.65),1), ix=colX+pad,iy=yTop+pad,iw=cellW-pad*2,ih=cellH-pad*2,ir=Math.max(1,r-pad);
+          ctx.save();roundRect(ctx,ix,iy,iw,ih,ir);ctx.clip();
+          intervals.forEach(([a0,a1,color])=>{const lo=Math.max(a0,cell),hi=Math.min(a1,cell+1);if(hi<=lo)return;const relLo=lo-cell,relHi=hi-cell;const yy0=iy+ih*(1-relHi),yy1=iy+ih*(1-relLo);ctx.fillStyle=color;ctx.fillRect(ix,yy0,iw,Math.max(.5,yy1-yy0));});
+          ctx.restore();
+        }
+        ctx.save();ctx.translate(colX+cellW/2,namesTop+nameH/2);ctx.rotate(Math.PI/2);ctx.fillStyle='#555';ctx.textAlign='center';ctx.font=`${S(9)}px "${fontStudent}", Tahoma, Arial, sans-serif`;ctx.fillText(student.name,0,0);ctx.restore();
+      });
+      const sepY=namesTop+nameH+S(18);ctx.strokeStyle='#DBDBDB';ctx.lineWidth=Math.max(1,S(1));ctx.beginPath();ctx.moveTo(x0+S(12),sepY);ctx.lineTo(x1-S(12),sepY);ctx.stroke();
+      ctx.fillStyle='#595959';ctx.textAlign='center';ctx.font=`${S(10)}px "${fontStudent}", Tahoma, Arial, sans-serif`;ctx.fillText(dispNum(gid),(x0+x1)/2,sepY+S(18));
+      const cy=sepY+S(73),r=Math.min(S(30),panelW*.31);ctx.beginPath();ctx.arc(x0+panelW/2,cy,r,0,Math.PI*2);ctx.fillStyle=p.settings.groupCircleColor||'#0B566B';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=S(2);ctx.stroke();
+    });
+    const rowH=S(25),legendH=S(38)+assignments.length*rowH+S(36),legendY=panelBottom-legendH-S(8);
+    ctx.fillStyle='#fff';ctx.strokeStyle='#E5E5E5';ctx.lineWidth=Math.max(1,S(1));roundRect(ctx,legendX,legendY,legendW,legendH,S(7));ctx.fill();ctx.stroke();
+    ctx.fillStyle='#4A4A4A';ctx.textAlign='right';ctx.direction='rtl';ctx.font=`bold ${S(10)}px "${fontAssignment}", Tahoma, Arial, sans-serif`;ctx.fillText('راهنمای تمرین‌ها',legendX+legendW-S(18),legendY+S(20));
+    let ly=legendY+S(50);assignments.forEach(a=>{ctx.fillStyle=a.color;roundRect(ctx,legendX+S(16),ly-S(5),S(11),S(11),S(2));ctx.fill();ctx.fillStyle='#555';ctx.textAlign='right';ctx.direction='rtl';ctx.font=`${S(10)}px "${fontAssignment}", Tahoma, Arial, sans-serif`;ctx.fillText(`${a.name} — ${dispNum(fmt(a.max))} امتیاز`,legendX+legendW-S(18),ly);ly+=rowH;});
+    ctx.fillStyle='#777';ctx.font=`${S(9)}px "${fontStudent}", Tahoma, Arial, sans-serif`;ctx.fillText('نمره‌های اعشاری بدون فاصله بین رنگ‌ها ادامه پیدا می‌کنند',legendX+legendW-S(18),legendY+legendH-S(18));ctx.direction='ltr';
+    ctx.fillStyle='#8A8A8A';ctx.textAlign='left';ctx.font=`${S(8)}px Arial, sans-serif`;ctx.fillText(`Capacity: ${nCells} · Assignment max total: ${fmt(totalMax)}`,leftMargin,height-S(15));
+    return canvas;
+  }
+
+  function renderPreview() {
+    const target=$('leaderboardCanvas');
+    const temp=renderLeaderboardCanvas(1.25);
+    target.width=temp.width;target.height=temp.height;target.getContext('2d').drawImage(temp,0,0);
+    const scroller=$('previewScroller');
+    const available=Math.max(280,scroller.clientWidth-24);const cssScale=Math.min(1,available/temp.width);
+    target.style.width=`${Math.round(temp.width*cssScale)}px`;target.style.height=`${Math.round(temp.height*cssScale)}px`;
+    $('previewMeta').textContent=` · ${temp.width} × ${temp.height} preview`;
+  }
+
+  async function highResCanvas() {
+    await document.fonts?.ready;
+    return renderLeaderboardCanvas(Math.max(1, num(state.project.settings.exportScale,3)));
+  }
+
+  function downloadBlob(blob, filename) {
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+
+  function dataUrlToBytes(dataUrl) {
+    const b64=dataUrl.split(',')[1];const s=atob(b64);const out=new Uint8Array(s.length);for(let i=0;i<s.length;i++)out[i]=s.charCodeAt(i);return out;
+  }
+
+  function blobToBytes(blob){return blob.arrayBuffer().then(b=>new Uint8Array(b));}
+
+  const CRC_TABLE = (()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+  function crc32(bytes){let c=0xFFFFFFFF;for(const b of bytes)c=CRC_TABLE[(c^b)&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+  function u32be(n){return new Uint8Array([(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255]);}
+  function u32le(n){return new Uint8Array([n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255]);}
+  function u16le(n){return new Uint8Array([n&255,(n>>>8)&255]);}
+  function concatBytes(parts){const len=parts.reduce((s,p)=>s+p.length,0),out=new Uint8Array(len);let o=0;for(const p of parts){out.set(p,o);o+=p.length;}return out;}
+  const enc=new TextEncoder();
+
+  async function pngBlobWithDpi(canvas,dpi){
+    const raw=await new Promise(r=>canvas.toBlob(r,'image/png'));const bytes=await blobToBytes(raw);const ppm=Math.round(dpi/0.0254);const data=concatBytes([u32be(ppm),u32be(ppm),new Uint8Array([1])]);const type=enc.encode('pHYs');const chunk=concatBytes([u32be(data.length),type,data,u32be(crc32(concatBytes([type,data])))]);
+    let offset=8,insertAt=8;while(offset<bytes.length){const len=(bytes[offset]<<24)|(bytes[offset+1]<<16)|(bytes[offset+2]<<8)|bytes[offset+3];const name=String.fromCharCode(...bytes.slice(offset+4,offset+8));if(name==='IDAT'){insertAt=offset;break;}offset+=12+len;}
+    return new Blob([concatBytes([bytes.slice(0,insertAt),chunk,bytes.slice(insertAt)])],{type:'image/png'});
+  }
+
+  async function pdfBlobFromCanvas(canvas,dpi){
+    const jpeg=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.95));const img=await blobToBytes(jpeg);const pw=canvas.width*72/dpi,ph=canvas.height*72/dpi;
+    const objects=[];
+    objects.push('<< /Type /Catalog /Pages 2 0 R >>');
+    objects.push('<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pw.toFixed(3)} ${ph.toFixed(3)}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`);
+    objects.push({dict:`<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.length} >>`,data:img});
+    const content=enc.encode(`q\n${pw.toFixed(3)} 0 0 ${ph.toFixed(3)} 0 0 cm\n/Im0 Do\nQ\n`);objects.push({dict:`<< /Length ${content.length} >>`,data:content});
+    const parts=[enc.encode('%PDF-1.4\n%\xFF\xFF\xFF\xFF\n')],offsets=[0];let length=parts[0].length;
+    objects.forEach((obj,i)=>{offsets.push(length);const head=enc.encode(`${i+1} 0 obj\n`);parts.push(head);length+=head.length;if(typeof obj==='string'){const b=enc.encode(obj+'\nendobj\n');parts.push(b);length+=b.length;}else{const d=enc.encode(obj.dict+'\nstream\n');parts.push(d,obj.data,enc.encode('\nendstream\nendobj\n'));length+=d.length+obj.data.length+enc.encode('\nendstream\nendobj\n').length;}});
+    const xrefPos=length;let xref=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`;for(let i=1;i<offsets.length;i++)xref+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';xref+=`trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
+    parts.push(enc.encode(xref));return new Blob(parts,{type:'application/pdf'});
+  }
+
+  function makeCsv(rows){return rows.map(row=>row.map(v=>{const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\r\n');}
+  function projectCsvFiles(){const p=state.project,as=sortedAssignments(),ss=sortedStudents();return {
+    'students.csv':makeCsv([['Group','Order','Name','Confidence','Note'],...ss.map(s=>[s.group,s.order,s.name,s.confidence,s.note])]),
+    'assignments.csv':makeCsv([['Order','Assignment','Max Points','Color HEX'],...as.map(a=>[a.order,a.name,a.max,a.color])]),
+    'scores.csv':makeCsv([['Group','Student',...as.map(a=>a.name)],...ss.map(s=>[s.group,s.name,...as.map(a=>p.scores[s.id]?.[a.id]??'')])])
+  };}
+
+  function excelCol(n){let s='';while(n){n--;s=String.fromCharCode(65+n%26)+s;n=Math.floor(n/26);}return s;}
+  function sheetXml(rows){let out='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';rows.forEach((row,ri)=>{out+=`<row r="${ri+1}">`;row.forEach((v,ci)=>{if(v===null||v===undefined||v==='')return;const ref=excelCol(ci+1)+(ri+1);if(typeof v==='number')out+=`<c r="${ref}"><v>${v}</v></c>`;else out+=`<c r="${ref}" t="inlineStr"><is><t>${xmlEsc(v)}</t></is></c>`;});out+='</row>';});return out+'</sheetData></worksheet>';}
+  async function makeXlsxBlob(){const p=state.project,as=sortedAssignments(),ss=sortedStudents();const sheets=[
+    ['Students',[['Group','Order','Name','Read confidence','Transcription note'],...ss.map(s=>[s.group,s.order,s.name,s.confidence,s.note])]],
+    ['Assignments',[['Order','Assignment','Max Points','Color HEX'],...as.map(a=>[a.order,a.name,a.max,a.color])]],
+    ['Scores',[['Group','Student',...as.map(a=>a.name)],...ss.map(s=>[s.group,s.name,...as.map(a=>p.scores[s.id]?.[a.id]??'')])]],
+    ['Settings',[['Setting','Value'],...Object.entries(p.settings)]]
+  ];
+    const files={};files['[Content_Types].xml']='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')+'</Types>';
+    files['_rels/.rels']='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+    files['xl/workbook.xml']='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+sheets.map((s,i)=>`<sheet name="${xmlEsc(s[0])}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')+'</sheets></workbook>';
+    files['xl/_rels/workbook.xml.rels']='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+sheets.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')+'</Relationships>';
+    sheets.forEach((s,i)=>files[`xl/worksheets/sheet${i+1}.xml`]=sheetXml(s[1]));return zipBlob(files,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  }
+
+  function dosDateTime(date=new Date()){const year=Math.max(1980,date.getFullYear());const time=(date.getHours()<<11)|(date.getMinutes()<<5)|(date.getSeconds()>>1);const day=((year-1980)<<9)|((date.getMonth()+1)<<5)|date.getDate();return {time,day};}
+  async function zipBlob(files,mime='application/zip'){
+    const locals=[],centrals=[];let offset=0;const {time,day}=dosDateTime();
+    for(const [name,value] of Object.entries(files)){const nameB=enc.encode(name);let data;if(value instanceof Blob)data=await blobToBytes(value);else if(value instanceof Uint8Array)data=value;else data=enc.encode(String(value));const crc=crc32(data);const local=concatBytes([u32le(0x04034b50),u16le(20),u16le(0x0800),u16le(0),u16le(time),u16le(day),u32le(crc),u32le(data.length),u32le(data.length),u16le(nameB.length),u16le(0),nameB,data]);locals.push(local);const central=concatBytes([u32le(0x02014b50),u16le(20),u16le(20),u16le(0x0800),u16le(0),u16le(time),u16le(day),u32le(crc),u32le(data.length),u32le(data.length),u16le(nameB.length),u16le(0),u16le(0),u16le(0),u16le(0),u32le(0),u32le(offset),nameB]);centrals.push(central);offset+=local.length;}
+    const centralBytes=concatBytes(centrals),localBytes=concatBytes(locals);const end=concatBytes([u32le(0x06054b50),u16le(0),u16le(0),u16le(centrals.length),u16le(centrals.length),u32le(centralBytes.length),u32le(localBytes.length),u16le(0)]);return new Blob([localBytes,centralBytes,end],{type:mime});
+  }
+
+  async function exportPng(download=true){const c=await highResCanvas();const dpi=Math.max(72,num(state.project.settings.pngDpi,300));const blob=await pngBlobWithDpi(c,dpi);state.pngCache=blob;if(download)downloadBlob(blob,'leaderboard.png');return blob;}
+  async function exportPdf(download=true){const c=await highResCanvas();const dpi=Math.max(72,num(state.project.settings.pngDpi,300));const blob=await pdfBlobFromCanvas(c,dpi);state.pdfCache=blob;if(download)downloadBlob(blob,'leaderboard.pdf');return blob;}
+
+  function projectJson(){return JSON.stringify(state.project,null,2);}
+  function downloadProject(){downloadBlob(new Blob([projectJson()],{type:'application/json'}),`Leaderboard_${new Date().toISOString().slice(0,10)}.leaderboard.json`);}
+
+  async function standaloneHtml(){
+    let html='<!doctype html>
+'+document.documentElement.outerHTML;
+    const initial=`window.INITIAL_PROJECT=${JSON.stringify(state.project)};`;
+    html=html.replace(/<script>window\.INITIAL_PROJECT=.*?<\/script>/s,`<script>${initial}<\/script>`);
+    html=html.replace('<link rel="manifest" href="manifest.webmanifest">','').replace('<link rel="icon" href="icon.svg" type="image/svg+xml">','');
+    return html;
+  }
+
+  async function emergencyBackup(){
+    $('emergencyBtn').disabled=$('emergencyBtn2').disabled=true;$('saveStatus').textContent='Building backup…';
+    try{
+      const [png,pdf,xlsx]=await Promise.all([exportPng(false),exportPdf(false),makeXlsxBlob()]);const files={'project.json':projectJson(),'grades.xlsx':xlsx,'leaderboard.png':png,'leaderboard.pdf':pdf,...projectCsvFiles()};
+      const sourceNames=['index.html','styles.css','app.js','initial-data.js','manifest.webmanifest','service-worker.js','icon.svg'];for(const name of sourceNames){try{const r=await fetch(name);if(r.ok)files[`offline-app/${name}`]=await r.blob();}catch{}}
+      const standalone=await standaloneHtml();if(standalone)files['standalone.html']=standalone;
+      files['README_OFFLINE.txt']='Emergency backup for University Leaderboard v3.\n\n1) project.json contains all editable progress.\n2) grades.xlsx and CSV files are portable data copies.\n3) leaderboard.png and leaderboard.pdf are high-resolution exports.\n4) standalone.html opens the saved project without needing the internet.\n5) offline-app/ contains the PWA source package for redeployment.\n';
+      const zip=await zipBlob(files);downloadBlob(zip,`Leaderboard_Emergency_Backup_${new Date().toISOString().replace(/[:.]/g,'-')}.zip`);$('saveStatus').textContent='Backup downloaded';
+    }catch(e){console.error(e);alert('Could not create complete backup: '+e.message);$('saveStatus').textContent='Backup failed';}
+    finally{$('emergencyBtn').disabled=$('emergencyBtn2').disabled=false;}
+  }
+
+  function dbOpen(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(HANDLE_STORE))req.result.createObjectStore(HANDLE_STORE);};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
+  async function dbSet(key,val){const db=await dbOpen();return new Promise((res,rej)=>{const tx=db.transaction(HANDLE_STORE,'readwrite');tx.objectStore(HANDLE_STORE).put(val,key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
+  async function dbGet(key){const db=await dbOpen();return new Promise((res,rej)=>{const req=db.transaction(HANDLE_STORE).objectStore(HANDLE_STORE).get(key);req.onsuccess=()=>res(req.result);req.onerror=()=>rej(req.error);});}
+  async function restoreCloudHandle(){if(!('showOpenFilePicker' in window)){$('cloudStatus').textContent='Synced-file mode needs Chrome or Edge on desktop. Project download/import still works everywhere.';return;}try{const h=await dbGet(HANDLE_KEY);if(h){state.cloudHandle=h;state.cloudPermission=await h.queryPermission({mode:'readwrite'});updateCloudUi();}}catch(e){console.warn(e);}}
+  function updateCloudUi(){const h=state.cloudHandle;$('saveCloudBtn').disabled=!h;$('reloadCloudBtn').disabled=!h;$('cloudStatus').textContent=h?`Linked: ${h.name} · ${state.cloudPermission==='granted'?'autosave enabled':'click Save now to grant write access'}`:'No synced project file linked.';}
+  async function requestHandlePermission(){if(!state.cloudHandle)return false;let p=await state.cloudHandle.queryPermission({mode:'readwrite'});if(p!=='granted')p=await state.cloudHandle.requestPermission({mode:'readwrite'});state.cloudPermission=p;updateCloudUi();return p==='granted';}
+  async function writeCloud(forcePermission=false){if(!state.cloudHandle)return;if(forcePermission&&!await requestHandlePermission())return;if(state.cloudPermission!=='granted')return;const w=await state.cloudHandle.createWritable();await w.write(projectJson());await w.close();state.lastCloudWrite=Date.now();$('cloudStatus').textContent=`Linked: ${state.cloudHandle.name} · saved ${new Date().toLocaleTimeString()}`;}
+  async function autosaveCloud(){if(state.cloudHandle&&state.cloudPermission==='granted'){try{await writeCloud(false);}catch(e){console.warn('Cloud-file autosave failed',e);$('cloudStatus').textContent='Synced file save failed. Use Save now.';}}}
+  async function createCloud(){if(!('showSaveFilePicker' in window)){alert('This browser does not support direct synced-file access. Use Download project instead.');return;}const h=await showSaveFilePicker({suggestedName:'University_Leaderboard.leaderboard.json',types:[{description:'Leaderboard project',accept:{'application/json':['.json']}}]});state.cloudHandle=h;await dbSet(HANDLE_KEY,h);state.cloudPermission=await h.requestPermission({mode:'readwrite'});await writeCloud(false);updateCloudUi();}
+  async function openCloud(){if(!('showOpenFilePicker' in window)){alert('This browser does not support direct synced-file access. Use Import project instead.');return;}const [h]=await showOpenFilePicker({types:[{description:'Leaderboard project',accept:{'application/json':['.json']}}],multiple:false});state.cloudHandle=h;await dbSet(HANDLE_KEY,h);state.cloudPermission=await h.requestPermission({mode:'readwrite'});await loadCloud();updateCloudUi();}
+  async function loadCloud(){if(!state.cloudHandle)return;const file=await state.cloudHandle.getFile();const p=normalizeProject(JSON.parse(await file.text()));if(confirm(`Load ${state.cloudHandle.name}? This will replace the current local view.`)){state.project=p;localStorage.setItem(STORAGE_KEY,JSON.stringify(p));maybeSnapshot(true);renderAllEditors();}}
+
+  function handleImport(file){const reader=new FileReader();reader.onload=()=>{try{const p=normalizeProject(JSON.parse(reader.result));state.project=p;localStorage.setItem(STORAGE_KEY,JSON.stringify(p));maybeSnapshot(true);renderAllEditors();markDirty('Project imported');}catch(e){alert('That file is not a valid Leaderboard project.');}};reader.readAsText(file);}
+
+  function setupTabs(){document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===btn));document.querySelectorAll('.tab-page').forEach(x=>x.classList.remove('active'));$(`tab-${btn.dataset.tab}`).classList.add('active');}));}
+  function setupNetwork(){const update=()=>{$('offlineBanner').hidden=navigator.onLine;};window.addEventListener('online',update);window.addEventListener('offline',update);update();}
+  function setupPwa(){if('serviceWorker' in navigator && location.protocol!=='file:')navigator.serviceWorker.register('./service-worker.js').catch(console.warn);window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.installPrompt=e;$('installBtn').hidden=false;});$('installBtn').addEventListener('click',async()=>{if(!state.installPrompt)return;state.installPrompt.prompt();await state.installPrompt.userChoice;state.installPrompt=null;$('installBtn').hidden=true;});}
+
+  function bindActions(){
+    $('addAssignmentBtn').addEventListener('click',addAssignment);$('addStudentBtn').addEventListener('click',addStudent);
+    $('clearScoresBtn').addEventListener('click',()=>{if(!confirm('Clear every score? Student and assignment setup will remain.'))return;for(const s of state.project.students)for(const a of state.project.assignments)state.project.scores[s.id][a.id]=null;markDirty('Scores cleared');renderScoresEditor();});
+    $('downloadProjectBtn').addEventListener('click',downloadProject);$('importProjectInput').addEventListener('change',e=>{if(e.target.files[0])handleImport(e.target.files[0]);e.target.value='';});
+    $('exportPngBtn').addEventListener('click',()=>exportPng(true));$('exportPdfBtn').addEventListener('click',()=>exportPdf(true));
+    $('emergencyBtn').addEventListener('click',emergencyBackup);$('emergencyBtn2').addEventListener('click',emergencyBackup);
+    $('createCloudBtn').addEventListener('click',createCloud);$('openCloudBtn').addEventListener('click',openCloud);$('saveCloudBtn').addEventListener('click',async()=>{if(await requestHandlePermission())await writeCloud(false);});$('reloadCloudBtn').addEventListener('click',loadCloud);
+    $('restoreHistoryBtn').addEventListener('click',()=>{const h=history(),i=Number($('historySelect').value);if(!h[i])return;if(confirm('Restore this snapshot? A new snapshot of the current state will be kept first.')){maybeSnapshot(true);state.project=normalizeProject(h[i].project);localStorage.setItem(STORAGE_KEY,JSON.stringify(state.project));renderAllEditors();}});
+    window.addEventListener('beforeunload',()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.project));}catch{}});
+  }
+
+  async function init(){
+    state.project=loadProject();setupTabs();setupNetwork();setupPwa();bindActions();renderAllEditors();maybeSnapshot(true);await restoreCloudHandle();
+  }
+  init();
+})();
+</script>
+</body>
+</html>

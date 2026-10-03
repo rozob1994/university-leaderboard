@@ -1,0 +1,13 @@
+{
+  "name": "University Leaderboard",
+  "short_name": "Leaderboard",
+  "description": "Offline-first live university assignment leaderboard",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f6f7",
+  "theme_color": "#0b566b",
+  "icons": [
+    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}
