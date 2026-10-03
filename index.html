@@ -146,6 +146,11 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 .switch-row { display:flex !important; align-items:center; gap:8px; color:var(--text) !important; font-size:14px !important; }
 .switch-row input { width:18px; height:18px; }
 #assignmentsWrap select, #studentsWrap select { min-height:38px; border:1px solid #d5d9dc; border-radius:8px; padding:7px 9px; background:#fff; }
+.class-switcher { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:12px 16px; border-bottom:1px solid var(--border); background:#fff; }
+.class-switcher-label { font-weight:700; }
+.class-day-btn { border:1px solid var(--border); background:#fff; color:var(--text); border-radius:999px; min-height:36px; padding:7px 14px; cursor:pointer; font-family:Kalameh,Tahoma,Arial,sans-serif; }
+.class-day-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+.import-success { background:#eaf7ef !important; color:#27613b !important; }
 @media (display-mode: standalone) { .eyebrow { opacity:.75; } }
 </style>
 </head>
@@ -159,7 +164,8 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       <span id="saveStatus" class="status-pill">روی این دستگاه ذخیره شد</span>
       <button id="installBtn" class="btn ghost" hidden>نصب برنامه</button>
       <button id="topDownloadProjectBtn" class="btn ghost">دانلود پروژه</button>
-      <label class="btn ghost file-btn">وارد کردن پروژه<input id="topImportProjectInput" type="file" accept=".json,.leaderboard.json,application/json"></label>
+      <button id="topImportProjectBtn" class="btn ghost">وارد کردن پروژه</button>
+      <input id="topImportProjectInput" type="file" accept=".json,.leaderboard.json,application/json" hidden>
       <button id="emergencyBtn" class="btn danger">پشتیبان اضطراری آفلاین</button>
     </div>
   </header>
@@ -169,6 +175,12 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 
   <main class="workspace">
     <section class="editor-panel">
+      <div class="class-switcher" role="group" aria-label="روز کلاس">
+        <span class="class-switcher-label">کلاس:</span>
+        <button type="button" class="class-day-btn active" data-class-day="monday">دوشنبه</button>
+        <button type="button" class="class-day-btn" data-class-day="thursday">پنجشنبه</button>
+        <span id="classStudentCount" class="muted"></span>
+      </div>
       <nav class="tabs" aria-label="Editor sections">
         <button class="tab active" data-tab="scores">نمره‌ها</button>
         <button class="tab" data-tab="assignments">تمرین‌ها</button>
@@ -338,8 +350,9 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     p.settings = Object.assign({
       title:'LEADERBOARD', subtitle:'Semester', capacity:48, guideInterval:4,
       exportScale:3, pngDpi:300, groupCircleColor:'#0B566B', background:'#F7F7F7',
-      studentFont:'Doran', assignmentFont:'Kalameh', persianDigits:true
+      studentFont:'Doran', assignmentFont:'Kalameh', persianDigits:true, activeClassDay:'monday'
     }, p.settings || {});
+    p.settings.activeClassDay = p.settings.activeClassDay === 'thursday' ? 'thursday' : 'monday';
     p.students = Array.isArray(p.students) ? p.students : [];
     p.assignments = Array.isArray(p.assignments) ? p.assignments : [];
     p.scores = p.scores || {};
@@ -350,6 +363,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       s.name = String(s.name || `Student ${i+1}`);
       s.confidence = s.confidence || 'high';
       s.note = s.note || '';
+      s.classDay = s.classDay === 'thursday' ? 'thursday' : 'monday';
       p.scores[s.id] = p.scores[s.id] || {};
     });
     p.assignments.forEach((a, i) => {
@@ -426,6 +440,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   }
 
   function renderAllEditors() {
+    renderClassSwitcher();
     renderScoresEditor();
     renderAssignmentsEditor();
     renderStudentsEditor();
@@ -435,8 +450,28 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     updateFontWarning();
   }
 
-  function sortedStudents() {
-    return [...state.project.students].sort((a,b) => a.group - b.group || a.order - b.order || a.name.localeCompare(b.name));
+  function activeClassDay() {
+    return state.project.settings.activeClassDay === 'thursday' ? 'thursday' : 'monday';
+  }
+  function classDayFa(day) { return day === 'thursday' ? 'پنجشنبه' : 'دوشنبه'; }
+  function sortedStudents(allDays = false) {
+    const arr = allDays ? [...state.project.students] : state.project.students.filter(s => (s.classDay || 'monday') === activeClassDay());
+    return arr.sort((a,b) => (a.classDay||'monday').localeCompare(b.classDay||'monday') || a.group - b.group || a.order - b.order || a.name.localeCompare(b.name));
+  }
+  function renderClassSwitcher() {
+    const day = activeClassDay();
+    document.querySelectorAll('.class-day-btn').forEach(b => b.classList.toggle('active', b.dataset.classDay === day));
+    const count = state.project.students.filter(s => (s.classDay || 'monday') === day).length;
+    $('classStudentCount').textContent = `· ${dispNum(count)} دانشجو`;
+  }
+  function setActiveClassDay(day) {
+    if (!['monday','thursday'].includes(day)) return;
+    state.project.settings.activeClassDay = day;
+    renderClassSwitcher();
+    renderScoresEditor();
+    renderStudentsEditor();
+    renderPreview();
+    markDirty('کلاس ' + classDayFa(day));
   }
 
   function sortedAssignments() {
@@ -446,6 +481,10 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   function renderScoresEditor() {
     const students = sortedStudents();
     const assignments = sortedAssignments();
+    if (!students.length) {
+      $('scoresWrap').innerHTML = '<div style="padding:28px;text-align:center;color:var(--muted)">هنوز دانشجویی برای کلاس '+classDayFa(activeClassDay())+' ثبت نشده است. از تب «دانشجوها» دانشجو اضافه کنید.</div>';
+      return;
+    }
     let html = '<table><thead><tr><th>گروه</th><th>دانشجو</th>';
     for (const a of assignments) html += `<th><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${a.color};margin-left:5px"></span><input class="header-assignment-input" data-assignment-name="${a.id}" value="${escapeHtml(a.name)}" aria-label="نام تمرین"></th>`;
     html += '</tr></thead><tbody>';
@@ -565,9 +604,10 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 
   function renderStudentsEditor() {
     const students = sortedStudents();
-    let html = '<div class="students-table"><table><thead><tr><th>گروه</th><th>ترتیب</th><th>نام</th><th>وضعیت خوانش</th><th>یادداشت</th><th></th></tr></thead><tbody>';
+    let html = '<div class="students-table"><table><thead><tr><th>روز کلاس</th><th>گروه</th><th>ترتیب</th><th>نام</th><th>وضعیت خوانش</th><th>یادداشت</th><th></th></tr></thead><tbody>';
     students.forEach(s => {
       html += `<tr data-id="${s.id}" class="confidence-${escapeHtml(s.confidence)}">`+
+        `<td><select data-field="classDay"><option value="monday" ${(s.classDay||'monday')==='monday'?'selected':''}>دوشنبه</option><option value="thursday" ${s.classDay==='thursday'?'selected':''}>پنجشنبه</option></select></td>`+
         `<td><input class="number-input" data-field="group" value="${s.group}"></td>`+
         `<td><input class="number-input" data-field="order" value="${s.order}"></td>`+
         `<td><input class="text-input assignment-name" data-field="name" value="${escapeHtml(s.name)}"></td>`+
@@ -579,11 +619,12 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     $('studentsWrap').innerHTML = html;
     $('studentsWrap').querySelectorAll('tr[data-id]').forEach(row => {
       const s = state.project.students.find(x => x.id === row.dataset.id);
-      for (const f of ['group','order','name','note','confidence']) {
+      for (const f of ['classDay','group','order','name','note','confidence']) {
         row.querySelector(`[data-field=${f}]`).addEventListener(f === 'name' || f === 'note' ? 'input' : 'change', e => {
           if (f === 'group' || f === 'order') s[f] = Math.max(1, Math.round(num(toLatinDigits(e.target.value), s[f])));
           else s[f] = e.target.value;
           markDirty('مشخصات دانشجو تغییر کرد');
+          if (f === 'classDay') { renderStudentsEditor(); renderClassSwitcher(); renderPreview(); }
           if (f !== 'note') renderScoresEditor();
         });
       }
@@ -597,7 +638,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     const group = maxGroup;
     const order = students.filter(s => s.group === group).length + 1;
     const id = 's_' + Date.now().toString(36);
-    state.project.students.push({id, group, order, name:'دانشجوی جدید', confidence:'high', note:''});
+    state.project.students.push({id, classDay:activeClassDay(), group, order, name:'دانشجوی جدید', confidence:'high', note:''});
     state.project.scores[id] = Object.fromEntries(state.project.assignments.map(a => [a.id, null]));
     markDirty('Student added'); renderStudentsEditor(); renderScoresEditor();
   }
@@ -758,7 +799,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     const scroller=$('previewScroller');
     const available=Math.max(280,scroller.clientWidth-24);const cssScale=Math.min(1,available/temp.width);
     target.style.width=`${Math.round(temp.width*cssScale)}px`;target.style.height=`${Math.round(temp.height*cssScale)}px`;
-    $('previewMeta').textContent=` · ${temp.width} × ${temp.height} preview`;
+    $('previewMeta').textContent=` · کلاس ${classDayFa(activeClassDay())} · ${temp.width} × ${temp.height}`;
   }
 
   async function highResCanvas() {
@@ -896,7 +937,28 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   async function openCloud(){if(!('showOpenFilePicker' in window)){alert('This browser does not support direct synced-file access. Use وارد کردن پروژه instead.');return;}const [h]=await showOpenFilePicker({types:[{description:'Leaderboard project',accept:{'application/json':['.json']}}],multiple:false});state.cloudHandle=h;await dbSet(HANDLE_KEY,h);state.cloudPermission=await h.requestPermission({mode:'readwrite'});await loadCloud();updateCloudUi();}
   async function loadCloud(){if(!state.cloudHandle)return;const file=await state.cloudHandle.getFile();const p=normalizeProject(JSON.parse(await file.text()));if(confirm(`Load ${state.cloudHandle.name}? This will replace the current local view.`)){state.project=p;localStorage.setItem(STORAGE_KEY,JSON.stringify(p));maybeSnapshot(true);renderAllEditors();}}
 
-  function handleImport(file){const reader=new FileReader();reader.onload=()=>{try{const p=normalizeProject(JSON.parse(reader.result));state.project=p;localStorage.setItem(STORAGE_KEY,JSON.stringify(p));maybeSnapshot(true);renderAllEditors();markDirty('پروژه وارد شد');}catch(e){alert('That file is not a valid Leaderboard project.');}};reader.readAsText(file);}
+  async function handleImport(file){
+    try {
+      const rawText = await file.text();
+      let raw = JSON.parse(rawText.replace(/^\uFEFF/,''));
+      if (raw && raw.project && typeof raw.project === 'object') raw = raw.project;
+      if (raw && raw.data && raw.data.students && raw.data.assignments) raw = raw.data;
+      if (!raw || !Array.isArray(raw.students) || !Array.isArray(raw.assignments)) throw new Error('ساختار فایل پروژه شناخته نشد.');
+      const p = normalizeProject(raw);
+      state.project = p;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+      maybeSnapshot(true);
+      renderAllEditors();
+      state.dirty = false;
+      $('saveStatus').textContent = `وارد شد: ${dispNum(p.students.length)} دانشجو · ${dispNum(p.assignments.length)} تمرین`;
+      $('saveStatus').classList.add('import-success');
+      setTimeout(()=>{$('saveStatus').classList.remove('import-success');$('saveStatus').textContent='روی این دستگاه ذخیره شد';},5000);
+      alert(`پروژه با موفقیت وارد شد.\n${dispNum(p.students.length)} دانشجو و ${dispNum(p.assignments.length)} تمرین بارگذاری شد.\nدانشجوهای فایل قدیمی فعلاً در کلاس دوشنبه قرار گرفتند؛ می‌توانید هر دانشجو را به پنجشنبه منتقل کنید.`);
+    } catch(e) {
+      console.error(e);
+      alert('وارد کردن پروژه ناموفق بود:\n' + (e.message || e));
+    }
+  }
 
   function setupTabs(){document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===btn));document.querySelectorAll('.tab-page').forEach(x=>x.classList.remove('active'));$(`tab-${btn.dataset.tab}`).classList.add('active');}));}
   function setupNetwork(){const update=()=>{$('offlineBanner').hidden=navigator.onLine;};window.addEventListener('online',update);window.addEventListener('offline',update);update();}
@@ -904,10 +966,12 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 
   function bindActions(){
     $('addAssignmentBtn').addEventListener('click',addAssignment);$('addStudentBtn').addEventListener('click',addStudent);
-    $('clearScoresBtn').addEventListener('click',()=>{if(!confirm('Clear every score? Student and assignment setup will remain.'))return;for(const s of state.project.students)for(const a of state.project.assignments)state.project.scores[s.id][a.id]=null;markDirty('نمره‌ها پاک شدند');renderScoresEditor();});
+    $('clearScoresBtn').addEventListener('click',()=>{if(!confirm('همهٔ نمره‌های کلاس '+classDayFa(activeClassDay())+' پاک شوند؟'))return;for(const s of sortedStudents())for(const a of state.project.assignments)state.project.scores[s.id][a.id]=null;markDirty('نمره‌های کلاس پاک شدند');renderScoresEditor();renderPreview();});
     $('downloadProjectBtn').addEventListener('click',downloadProject);$('topDownloadProjectBtn').addEventListener('click',downloadProject);
-    const bindImport=(id)=>$(id).addEventListener('change',e=>{if(e.target.files[0])handleImport(e.target.files[0]);e.target.value='';});
+    $('topImportProjectBtn').addEventListener('click',()=>$('topImportProjectInput').click());
+    const bindImport=(id)=>$(id).addEventListener('change',async e=>{const file=e.target.files && e.target.files[0];if(file)await handleImport(file);e.target.value='';});
     bindImport('importProjectInput');bindImport('topImportProjectInput');
+    document.querySelectorAll('.class-day-btn').forEach(btn=>btn.addEventListener('click',()=>setActiveClassDay(btn.dataset.classDay)));
     $('exportPngBtn').addEventListener('click',()=>exportPng(true));$('exportPdfBtn').addEventListener('click',()=>exportPdf(true));
     $('emergencyBtn').addEventListener('click',emergencyBackup);$('emergencyBtn2').addEventListener('click',emergencyBackup);
     $('createCloudBtn').addEventListener('click',createCloud);$('openCloudBtn').addEventListener('click',openCloud);$('saveCloudBtn').addEventListener('click',async()=>{if(await requestHandlePermission())await writeCloud(false);});$('reloadCloudBtn').addEventListener('click',loadCloud);
