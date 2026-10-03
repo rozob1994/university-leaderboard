@@ -186,6 +186,8 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     </div>
     <div class="top-actions">
       <span id="saveStatus" class="status-pill">روی این دستگاه ذخیره شد</span>
+      <span id="adminIdentity" class="status-pill" hidden></span>
+      <button id="logoutBtn" class="btn ghost" hidden>خروج</button>
       <button id="installBtn" class="btn ghost" hidden>نصب برنامه</button>
       <button id="topDownloadProjectBtn" class="btn ghost">دانلود پروژه</button>
       <button id="topImportProjectBtn" class="btn ghost">وارد کردن پروژه</button>
@@ -1131,8 +1133,23 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     window.addEventListener('beforeunload',()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.project));}catch{}});
   }
 
+  async function setupSecureHostIdentity(){
+    try {
+      const r=await fetch('/api/me',{cache:'no-store'});
+      if(!r.ok) return;
+      const me=await r.json();
+      $('adminIdentity').textContent='مدیر: '+(me.displayName||me.username);
+      $('adminIdentity').hidden=false;
+      $('logoutBtn').hidden=false;
+      $('logoutBtn').addEventListener('click',async()=>{
+        try{await fetch('/auth/logout',{method:'POST',cache:'no-store'});}catch{}
+        location.href='/login';
+      });
+    } catch {}
+  }
+
   async function init(){
-    state.project=loadProject();setupTabs();setupNetwork();setupPwa();bindActions();await restoreCustomFonts();renderAllEditors();maybeSnapshot(true);await restoreCloudHandle();
+    state.project=loadProject();setupTabs();setupNetwork();setupPwa();bindActions();await setupSecureHostIdentity();await restoreCustomFonts();renderAllEditors();maybeSnapshot(true);await restoreCloudHandle();
   }
   init();
 })();
