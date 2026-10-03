@@ -81,7 +81,15 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 .score-input { width: 72px; min-height: 34px; border: 1px solid #d5d9dc; border-radius: 7px; padding: 6px 7px; text-align: center; }
 .score-input:focus, .text-input:focus, .number-input:focus, select:focus { outline: 2px solid rgba(11,86,107,.25); border-color: var(--accent); }
 .group-cell { width: 56px; text-align: center; font-weight: 700; }
-.student-cell { min-width: 150px; direction: rtl; text-align: right; font-family: Doran, Tahoma, Arial, sans-serif; }
+.student-cell { min-width: 190px; direction: rtl; text-align: right; font-family: Doran, Tahoma, Arial, sans-serif; }
+.scores-table th:first-child, .scores-table td:first-child { position:sticky; left:0; z-index:4; background:#fbfbfb; min-width:190px; }
+.scores-table th:nth-child(2), .scores-table td:nth-child(2) { position:static; left:auto; z-index:auto; }
+.scores-table th:first-child { z-index:5; }
+.scores-table tr.group-start:not(:first-child) td { border-top:2px solid #d9dde0; }
+.score-student-wrap { display:flex; align-items:center; gap:8px; min-width:0; }
+.score-group-badge { display:inline-flex; align-items:center; gap:5px; flex:0 0 auto; min-width:42px; height:26px; padding:0 7px; border-radius:999px; background:#f3f5f6; border:1px solid #e0e4e7; font-family:Kalameh,Tahoma,Arial,sans-serif; font-size:11px; font-weight:800; color:#4e565b; }
+.score-group-dot { width:9px; height:9px; border-radius:50%; background:var(--group-color); box-shadow:0 0 0 1px rgba(0,0,0,.06); }
+.score-student-wrap .student-name-inline { min-width:120px; width:150px; flex:1 1 auto; }
 .assignments-table, .students-table { width: 100%; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .assignments-table table, .students-table table { width: 100%; }
 .assignments-table th, .assignments-table td, .students-table th, .students-table td { position: static; }
@@ -226,7 +234,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
         <div class="section-head">
           <div>
             <h2>نمره‌ها</h2>
-            <p>نمره‌ها بلافاصله لیدربورد را به‌روزرسانی می‌کنند. خانهٔ خالی یعنی هنوز نمره‌ای ثبت نشده است.</p>
+            <p>دانشجوها بر اساس گروه و با همان ترتیب تب «دانشجوها» نمایش داده می‌شوند. خانهٔ خالی یعنی هنوز نمره‌ای ثبت نشده است.</p>
           </div>
           <button id="clearScoresBtn" class="btn ghost small">پاک کردن همه نمره‌ها</button>
         </div>
@@ -750,16 +758,20 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       $('scoresWrap').innerHTML = '<div style="padding:28px;text-align:center;color:var(--muted)">هنوز دانشجویی برای کلاس '+classDayFa(activeClassDay())+' ثبت نشده است. از تب «دانشجوها» دانشجو اضافه کنید.</div>';
       return;
     }
-    let html = '<table><thead><tr><th>گروه</th><th>دانشجو</th>';
+    let html = '<table class="scores-table"><thead><tr><th>دانشجو</th>';
     for (const a of assignments) html += `<th><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${a.color};margin-left:5px"></span><input class="header-assignment-input" data-assignment-name="${a.id}" value="${escapeHtml(a.name)}" aria-label="نام تمرین"></th>`;
     html += '</tr></thead><tbody>';
+    let lastGroup = null;
     for (const s of students) {
-      html += `<tr><td class="group-cell">${escapeHtml(dispNum(s.group))}</td><td class="student-cell"><input class="student-name-inline" data-student-name="${s.id}" value="${escapeHtml(s.name)}" aria-label="نام دانشجو"></td>`;
+      const groupStart = lastGroup !== null && lastGroup !== s.group;
+      const color = groupColor(s.group);
+      html += `<tr class="${groupStart ? 'group-start' : ''}" data-group="${s.group}"><td class="student-cell"><div class="score-student-wrap"><span class="score-group-badge" style="--group-color:${color}"><span class="score-group-dot"></span><span>${escapeHtml(dispNum(s.group))}</span></span><input class="student-name-inline" data-student-name="${s.id}" value="${escapeHtml(s.name)}" aria-label="نام دانشجو"></div></td>`;
       for (const a of assignments) {
         const v = state.project.scores[s.id]?.[a.id];
         html += `<td><input class="score-input" inputmode="decimal" data-student="${s.id}" data-assignment="${a.id}" value="${v == null ? '' : escapeHtml(fmt(v))}" aria-label="${escapeHtml(s.name)} ${escapeHtml(a.name)}" placeholder="—"></td>`;
       }
       html += '</tr>';
+      lastGroup = s.group;
     }
     html += '</tbody></table>';
     $('scoresWrap').innerHTML = html;
