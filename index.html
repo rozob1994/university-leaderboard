@@ -726,11 +726,11 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   function setActiveClassDay(day) {
     if (!['monday','thursday'].includes(day)) return;
     state.project.settings.activeClassDay = day;
+    try { localStorage.setItem(STORAGE_KEY,JSON.stringify(state.project)); } catch {}
     renderClassSwitcher();
     renderScoresEditor();
     renderStudentsEditor();
     renderPreview();
-    markDirty('کلاس ' + classDayFa(day));
   }
 
   function sortedAssignments() {
@@ -1327,6 +1327,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       maybeSnapshot(true);
       renderAllEditors();
       state.dirty = false;
+      if (state.sharedEnabled) await syncSharedProject();
       $('saveStatus').textContent = `وارد شد: ${dispNum(p.students.length)} دانشجو · ${dispNum(p.assignments.length)} تمرین`;
       $('saveStatus').classList.add('import-success');
       setTimeout(()=>{$('saveStatus').classList.remove('import-success');$('saveStatus').textContent='روی این دستگاه ذخیره شد';},5000);
@@ -1372,7 +1373,18 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   }
 
   async function init(){
-    state.project=loadProject();setupTabs();setupNetwork();setupPwa();bindActions();await setupSecureHostIdentity();await restoreCustomFonts();renderAllEditors();maybeSnapshot(true);await restoreCloudHandle();
+    state.project=loadProject();
+    setupTabs();
+    setupNetwork();
+    setupPwa();
+    bindActions();
+    await setupSecureHostIdentity();
+    await restoreCustomFonts();
+    await loadSharedAtStartup();
+    renderAllEditors();
+    maybeSnapshot(true);
+    await restoreCloudHandle();
+    startSharedPolling();
   }
   init();
 })();
