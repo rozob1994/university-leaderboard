@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const querystring = require('querystring');
+const { createClient } = require('@libsql/client');
 
 const PORT = Number(process.env.PORT || 10000);
 const ROOT = __dirname;
@@ -12,7 +13,14 @@ const SESSION_SECRET = String(process.env.SESSION_SECRET || '');
 const COOKIE_NAME = 'ul_admin_session';
 const SESSION_SECONDS = 7 * 24 * 60 * 60;
 const PBKDF2_DIGEST = 'sha256';
-const MAX_BODY = 16 * 1024;
+const MAX_FORM_BODY = 16 * 1024;
+const MAX_JSON_BODY = 2 * 1024 * 1024;
+
+const TURSO_DATABASE_URL = String(process.env.TURSO_DATABASE_URL || '').trim();
+const TURSO_AUTH_TOKEN = String(process.env.TURSO_AUTH_TOKEN || '').trim();
+const SHARED_DB_CONFIGURED = Boolean(TURSO_DATABASE_URL && TURSO_AUTH_TOKEN);
+let sharedDb = null;
+let sharedDbError = null;
 
 if (SESSION_SECRET.length < 32) {
   console.error('SESSION_SECRET is missing or too short. Use a random secret of at least 32 characters.');
@@ -121,6 +129,7 @@ function recordFailure(ip) {
 function clearFailures(ip) {
   failures.delete(ip);
 }
+
 function commonHeaders(res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
@@ -135,6 +144,9 @@ function send(res, status, body, type = 'text/plain; charset=utf-8', extra = {})
   res.writeHead(status, { 'Content-Type': type, ...extra });
   res.end(body);
 }
+function sendJson(res, status, value) {
+  send(res, status, JSON.stringify(value), 'application/json; charset=utf-8', { 'Cache-Control': 'no-store' });
+}
 function redirect(res, location) {
   commonHeaders(res);
   res.writeHead(302, { Location: location, 'Cache-Control': 'no-store' });
@@ -146,20 +158,124 @@ function loginPage(error = '') {
   const block = safe ? '<div class="error">'+safe+'</div>' : '';
   return html.replaceAll('{{ERROR}}', block);
 }
-function parseBody(req) {
+
+function readRawBody(req, limit) {
   return new Promise((resolve, reject) => {
-    let raw = '';
+    const chunks = [];
+    let size = 0;
     req.on('data', chunk => {
-      raw += chunk;
-      if (Buffer.byteLength(raw) > MAX_BODY) {
+      size += chunk.length;
+      if (size > limit) {
         reject(new Error('Request too large'));
         req.destroy();
+        return;
       }
+      chunks.push(chunk);
     });
-    req.on('end', () => resolve(querystring.parse(raw)));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
 }
+async function parseFormBody(req) {
+  return querystring.parse(await readRawBody(req, MAX_FORM_BODY));
+}
+async function parseJsonBody(req) {
+  const raw = await readRawBody(req, MAX_JSON_BODY);
+  return JSON.parse(raw || '{}');
+}
+
+async function initSharedDb() {
+  if (!SHARED_DB_CONFIGURED) {
+    console.log('Shared data: disabled until TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are configured.');
+    return;
+  }
+  try {
+    sharedDb = createClient({ url: TURSO_DATABASE_URL, authToken: TURSO_AUTH_TOKEN });
+    await sharedDb.batch([
+      `CREATE TABLE IF NOT EXISTS shared_project (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        data TEXT NOT NULL,
+        revision INTEGER NOT NULL,
+        updated_at TEXT NOT NULL,
+        updated_by TEXT NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS project_revisions (
+        revision INTEGER PRIMARY KEY,
+        data TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        updated_by TEXT NOT NULL
+      )`
+    ], 'write');
+    sharedDbError = null;
+    console.log('Shared data: Turso connected.');
+  } catch (err) {
+    sharedDb = null;
+    sharedDbError = String(err && err.message || err);
+    console.error('Shared data: Turso initialization failed:', sharedDbError);
+  }
+}
+
+async function readSharedProject() {
+  if (!sharedDb) return null;
+  const rs = await sharedDb.execute('SELECT data, revision, updated_at, updated_by FROM shared_project WHERE id = 1');
+  if (!rs.rows.length) return null;
+  const row = rs.rows[0];
+  return {
+    project: JSON.parse(String(row.data)),
+    revision: Number(row.revision || 0),
+    updatedAt: String(row.updated_at || ''),
+    updatedBy: String(row.updated_by || '')
+  };
+}
+
+function validProjectShape(project) {
+  return project && typeof project === 'object' &&
+    Array.isArray(project.students) &&
+    Array.isArray(project.assignments) &&
+    project.scores && typeof project.scores === 'object';
+}
+
+async function saveSharedProject(project, baseRevision, username) {
+  const data = JSON.stringify(project);
+  if (Buffer.byteLength(data, 'utf8') > 1500000) throw new Error('Project is too large');
+  const now = new Date().toISOString();
+  const current = await readSharedProject();
+
+  if (!current) {
+    if (Number(baseRevision || 0) !== 0) return { conflict: true, current: null };
+    const inserted = await sharedDb.execute({
+      sql: 'INSERT OR IGNORE INTO shared_project (id, data, revision, updated_at, updated_by) VALUES (1, ?, 1, ?, ?)',
+      args: [data, now, username]
+    });
+    if (!inserted.rowsAffected) return { conflict: true, current: await readSharedProject() };
+    await sharedDb.execute({
+      sql: 'INSERT OR REPLACE INTO project_revisions (revision, data, updated_at, updated_by) VALUES (1, ?, ?, ?)',
+      args: [data, now, username]
+    });
+    return { conflict: false, revision: 1, updatedAt: now, updatedBy: username };
+  }
+
+  const base = Number(baseRevision || 0);
+  if (base !== current.revision) return { conflict: true, current };
+
+  const next = current.revision + 1;
+  const updated = await sharedDb.execute({
+    sql: 'UPDATE shared_project SET data = ?, revision = ?, updated_at = ?, updated_by = ? WHERE id = 1 AND revision = ?',
+    args: [data, next, now, username, current.revision]
+  });
+  if (!updated.rowsAffected) return { conflict: true, current: await readSharedProject() };
+
+  await sharedDb.execute({
+    sql: 'INSERT OR REPLACE INTO project_revisions (revision, data, updated_at, updated_by) VALUES (?, ?, ?, ?)',
+    args: [next, data, now, username]
+  });
+  await sharedDb.execute({
+    sql: 'DELETE FROM project_revisions WHERE revision < ?',
+    args: [Math.max(1, next - 99)]
+  });
+  return { conflict: false, revision: next, updatedAt: now, updatedBy: username };
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
@@ -190,68 +306,131 @@ function serveProtectedFile(req, res, pathname) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://localhost');
-  const pathname = url.pathname;
+  try {
+    const url = new URL(req.url, 'http://localhost');
+    const pathname = url.pathname;
 
-  if (pathname === '/health') {
-    return send(res, 200, 'ok', 'text/plain; charset=utf-8', { 'Cache-Control': 'no-store' });
-  }
-
-  if (req.method === 'GET' && pathname === '/login') {
-    if (readSession(req)) return redirect(res, '/');
-    const error = url.searchParams.get('error') ? 'نام کاربری یا رمز عبور درست نیست.' :
-      (url.searchParams.get('locked') ? 'تلاش‌های ناموفق زیاد بود. ۱۵ دقیقه دیگر دوباره امتحان کنید.' : '');
-    return send(res, 200, loginPage(error), 'text/html; charset=utf-8', { 'Cache-Control': 'no-store' });
-  }
-
-  if (req.method === 'POST' && pathname === '/auth/login') {
-    const ip = clientIp(req);
-    if (loginBlocked(ip)) return redirect(res, '/login?locked=1');
-    let body;
-    try { body = await parseBody(req); }
-    catch { return send(res, 400, 'Bad request'); }
-
-    const username = String(body.username || '').trim().toLowerCase();
-    const password = String(body.password || '');
-    const user = USERS.find(u => u.username === username);
-    if (!user || !verifyPassword(password, user)) {
-      recordFailure(ip);
-      return redirect(res, '/login?error=1');
+    if (pathname === '/health') {
+      return sendJson(res, 200, {
+        ok: true,
+        sharedDataConfigured: SHARED_DB_CONFIGURED,
+        sharedDataConnected: Boolean(sharedDb),
+        sharedDataError: sharedDbError
+      });
     }
 
-    clearFailures(ip);
-    const cookie = `${COOKIE_NAME}=${encodeURIComponent(makeSession(user))}; Path=/; Max-Age=${SESSION_SECONDS}; HttpOnly; Secure; SameSite=Lax`;
-    commonHeaders(res);
-    res.writeHead(302, {
-      Location: '/',
-      'Set-Cookie': cookie,
-      'Cache-Control': 'no-store'
-    });
-    return res.end();
+    if (req.method === 'GET' && pathname === '/login') {
+      if (readSession(req)) return redirect(res, '/');
+      const error = url.searchParams.get('error') ? 'نام کاربری یا رمز عبور درست نیست.' :
+        (url.searchParams.get('locked') ? 'تلاش‌های ناموفق زیاد بود. ۱۵ دقیقه دیگر دوباره امتحان کنید.' : '');
+      return send(res, 200, loginPage(error), 'text/html; charset=utf-8', { 'Cache-Control': 'no-store' });
+    }
+
+    if (req.method === 'POST' && pathname === '/auth/login') {
+      const ip = clientIp(req);
+      if (loginBlocked(ip)) return redirect(res, '/login?locked=1');
+      let body;
+      try { body = await parseFormBody(req); }
+      catch { return send(res, 400, 'Bad request'); }
+
+      const username = String(body.username || '').trim().toLowerCase();
+      const password = String(body.password || '');
+      const user = USERS.find(u => u.username === username);
+      if (!user || !verifyPassword(password, user)) {
+        recordFailure(ip);
+        return redirect(res, '/login?error=1');
+      }
+
+      clearFailures(ip);
+      const cookie = `${COOKIE_NAME}=${encodeURIComponent(makeSession(user))}; Path=/; Max-Age=${SESSION_SECONDS}; HttpOnly; Secure; SameSite=Lax`;
+      commonHeaders(res);
+      res.writeHead(302, {
+        Location: '/',
+        'Set-Cookie': cookie,
+        'Cache-Control': 'no-store'
+      });
+      return res.end();
+    }
+
+    if (req.method === 'POST' && pathname === '/auth/logout') {
+      commonHeaders(res);
+      res.writeHead(302, {
+        Location: '/login',
+        'Set-Cookie': `${COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`,
+        'Cache-Control': 'no-store'
+      });
+      return res.end();
+    }
+
+    const session = readSession(req);
+    if (!session) {
+      if (pathname.startsWith('/api/')) return sendJson(res, 401, { error: 'unauthorized' });
+      return redirect(res, '/login');
+    }
+
+    if (req.method === 'GET' && pathname === '/api/me') {
+      return sendJson(res, 200, { username: session.u, displayName: session.n || session.u });
+    }
+
+    if (pathname === '/api/project') {
+      if (!SHARED_DB_CONFIGURED) {
+        return sendJson(res, 503, { configured: false, error: 'shared_database_not_configured' });
+      }
+      if (!sharedDb) {
+        return sendJson(res, 503, { configured: true, error: 'shared_database_unavailable', detail: sharedDbError });
+      }
+
+      if (req.method === 'GET') {
+        const current = await readSharedProject();
+        if (!current) return sendJson(res, 200, { configured: true, project: null, revision: 0 });
+        return sendJson(res, 200, { configured: true, ...current });
+      }
+
+      if (req.method === 'PUT') {
+        let body;
+        try { body = await parseJsonBody(req); }
+        catch (err) { return sendJson(res, 400, { error: 'invalid_json', detail: String(err.message || err) }); }
+        if (!validProjectShape(body.project)) return sendJson(res, 400, { error: 'invalid_project' });
+
+        const result = await saveSharedProject(body.project, body.baseRevision, session.u);
+        if (result.conflict) {
+          return sendJson(res, 409, {
+            error: 'revision_conflict',
+            current: result.current
+          });
+        }
+        return sendJson(res, 200, {
+          ok: true,
+          revision: result.revision,
+          updatedAt: result.updatedAt,
+          updatedBy: result.updatedBy
+        });
+      }
+    }
+
+    if (req.method === 'GET' && pathname === '/api/project/revisions') {
+      if (!sharedDb) return sendJson(res, 503, { error: 'shared_database_unavailable' });
+      const rs = await sharedDb.execute('SELECT revision, updated_at, updated_by FROM project_revisions ORDER BY revision DESC LIMIT 20');
+      return sendJson(res, 200, {
+        revisions: rs.rows.map(r => ({
+          revision: Number(r.revision),
+          updatedAt: String(r.updated_at || ''),
+          updatedBy: String(r.updated_by || '')
+        }))
+      });
+    }
+
+    if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed');
+    return serveProtectedFile(req, res, pathname);
+  } catch (err) {
+    console.error(err);
+    return sendJson(res, 500, { error: 'server_error' });
   }
-
-  if (req.method === 'POST' && pathname === '/auth/logout') {
-    commonHeaders(res);
-    res.writeHead(302, {
-      Location: '/login',
-      'Set-Cookie': `${COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`,
-      'Cache-Control': 'no-store'
-    });
-    return res.end();
-  }
-
-  const session = readSession(req);
-  if (!session) return redirect(res, '/login');
-
-  if (req.method === 'GET' && pathname === '/api/me') {
-    return send(res, 200, JSON.stringify({ username: session.u, displayName: session.n || session.u }), 'application/json; charset=utf-8', { 'Cache-Control': 'no-store' });
-  }
-
-  if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed');
-  return serveProtectedFile(req, res, pathname);
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`University Leaderboard secure server listening on port ${PORT}`);
-  console.log(`Configured admin users: ${USERS.map(u => u.username).join(', ')}`);
+initSharedDb().finally(() => {
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`University Leaderboard secure server listening on port ${PORT}`);
+    console.log(`Configured admin users: ${USERS.map(u => u.username).join(', ')}`);
+  });
 });
