@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="fa" dir="rtl">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -23,7 +23,9 @@
   --shadow: 0 8px 28px rgba(19, 32, 39, 0.08);
 }
 * { box-sizing: border-box; }
-html { font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--text); }
+@font-face { font-family: 'Doran'; src: local('Doran'), local('Doran Regular'), local('DoranFaNum'); font-display: swap; }
+@font-face { font-family: 'Kalameh'; src: local('Kalameh'), local('Kalameh Regular'), local('Kalameh FaNum'); font-display: swap; }
+html { font-family: Kalameh, Tahoma, Arial, Helvetica, sans-serif; background: var(--bg); color: var(--text); }
 body { margin: 0; min-width: 320px; }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
@@ -87,6 +89,10 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   width: 100%; min-height: 38px; border: 1px solid #d5d9dc; border-radius: 8px; padding: 7px 9px; background: #fff;
 }
 .assignment-name { direction: rtl; text-align: right; font-family: Kalameh, Tahoma, Arial, sans-serif; }
+.header-assignment-input { min-width: 105px; max-width: 150px; border: 0; background: transparent; font-family: Kalameh, Tahoma, Arial, sans-serif; direction: rtl; text-align: right; font-weight: 700; padding: 3px 4px; }
+.header-assignment-input:focus { background:#fff; outline:2px solid rgba(11,86,107,.22); border-radius:6px; }
+.student-name-inline { width:145px; border:0; background:transparent; font-family:Doran, Tahoma, Arial, sans-serif; direction:rtl; text-align:right; padding:4px; }
+.student-name-inline:focus { background:#fff; outline:2px solid rgba(11,86,107,.22); border-radius:6px; }
 .color-row { display: flex; gap: 8px; align-items: center; }
 .color-row input[type=color] { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
 .color-row input[type=text] { width: 96px; }
@@ -146,36 +152,36 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 <body>
   <header class="topbar">
     <div>
-      <div class="eyebrow">University Leaderboard · v3</div>
-      <h1>Live leaderboard</h1>
+      <div class="eyebrow">لیدربورد دانشگاه · نسخه ۳</div>
+      <h1>لیدربورد زنده</h1>
     </div>
     <div class="top-actions">
-      <span id="saveStatus" class="status-pill">Saved locally</span>
-      <button id="installBtn" class="btn ghost" hidden>Install app</button>
-      <button id="emergencyBtn" class="btn danger">Emergency offline backup</button>
+      <span id="saveStatus" class="status-pill">روی این دستگاه ذخیره شد</span>
+      <button id="installBtn" class="btn ghost" hidden>نصب برنامه</button>
+      <button id="emergencyBtn" class="btn danger">پشتیبان اضطراری آفلاین</button>
     </div>
   </header>
 
-  <div id="offlineBanner" class="offline-banner" hidden>You are offline. Editing still works and changes are saved on this device.</div>
+  <div id="offlineBanner" class="offline-banner" hidden>آفلاین هستید. ویرایش همچنان کار می‌کند و تغییرات روی همین دستگاه ذخیره می‌شوند.</div>
   <div id="fontBanner" class="warning-banner" hidden></div>
 
   <main class="workspace">
     <section class="editor-panel">
       <nav class="tabs" aria-label="Editor sections">
-        <button class="tab active" data-tab="scores">Scores</button>
-        <button class="tab" data-tab="assignments">Assignments</button>
-        <button class="tab" data-tab="students">Students</button>
-        <button class="tab" data-tab="settings">Settings</button>
-        <button class="tab" data-tab="backup">Backup & sync</button>
+        <button class="tab active" data-tab="scores">نمره‌ها</button>
+        <button class="tab" data-tab="assignments">تمرین‌ها</button>
+        <button class="tab" data-tab="students">دانشجوها</button>
+        <button class="tab" data-tab="settings">تنظیمات</button>
+        <button class="tab" data-tab="backup">پشتیبان و همگام‌سازی</button>
       </nav>
 
       <section id="tab-scores" class="tab-page active">
         <div class="section-head">
           <div>
-            <h2>Scores</h2>
-            <p>Scores update the leaderboard instantly. Empty means not graded yet.</p>
+            <h2>نمره‌ها</h2>
+            <p>نمره‌ها بلافاصله لیدربورد را به‌روزرسانی می‌کنند. خانهٔ خالی یعنی هنوز نمره‌ای ثبت نشده است.</p>
           </div>
-          <button id="clearScoresBtn" class="btn ghost small">Clear all scores</button>
+          <button id="clearScoresBtn" class="btn ghost small">پاک کردن همه نمره‌ها</button>
         </div>
         <div id="scoresWrap" class="table-wrap"></div>
       </section>
@@ -183,10 +189,10 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       <section id="tab-assignments" class="tab-page">
         <div class="section-head">
           <div>
-            <h2>Assignments</h2>
-            <p>Edit names, maximum points, and colors. The legend updates live.</p>
+            <h2>تمرین‌ها</h2>
+            <p>نام تمرین، نمرهٔ کامل و رنگ را تغییر دهید. راهنمای رنگ‌ها هم‌زمان به‌روز می‌شود.</p>
           </div>
-          <button id="addAssignmentBtn" class="btn small">+ Add assignment</button>
+          <button id="addAssignmentBtn" class="btn small">+ افزودن تمرین</button>
         </div>
         <div id="assignmentsWrap"></div>
       </section>
@@ -194,10 +200,10 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       <section id="tab-students" class="tab-page">
         <div class="section-head">
           <div>
-            <h2>Students</h2>
-            <p>Names and group positions are editable. Handwriting uncertainties are still flagged.</p>
+            <h2>دانشجوها</h2>
+            <p>نام‌ها، گروه و ترتیب دانشجوها قابل ویرایش است. موارد نامطمئنِ رونویسی همچنان مشخص می‌مانند.</p>
           </div>
-          <button id="addStudentBtn" class="btn small">+ Add student</button>
+          <button id="addStudentBtn" class="btn small">+ افزودن دانشجو</button>
         </div>
         <div id="studentsWrap"></div>
       </section>
@@ -205,8 +211,8 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       <section id="tab-settings" class="tab-page">
         <div class="section-head">
           <div>
-            <h2>Design & export</h2>
-            <p>These settings affect both the live preview and high-resolution exports.</p>
+            <h2>طراحی و خروجی</h2>
+            <p>این تنظیمات هم روی پیش‌نمایش زنده و هم روی خروجی باکیفیت اثر می‌گذارند.</p>
           </div>
         </div>
         <div id="settingsWrap" class="settings-grid"></div>
@@ -215,46 +221,46 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       <section id="tab-backup" class="tab-page">
         <div class="section-head">
           <div>
-            <h2>Backup & sync</h2>
-            <p>Local autosave is always on. Link a project file inside a synced folder for cross-device use.</p>
+            <h2>پشتیبان و همگام‌سازی</h2>
+            <p>ذخیرهٔ خودکار محلی همیشه فعال است. برای کار روی چند دستگاه، فایل پروژه را داخل یک پوشهٔ همگام‌شده قرار دهید.</p>
           </div>
         </div>
 
         <div class="backup-grid">
           <article class="card">
-            <h3>Local project</h3>
-            <p>Download or import the full editable project data.</p>
+            <h3>پروژهٔ محلی</h3>
+            <p>تمام داده‌های قابل ویرایش پروژه را دانلود یا وارد کنید.</p>
             <div class="button-row">
-              <button id="downloadProjectBtn" class="btn">Download project</button>
-              <label class="btn ghost file-btn">Import project<input id="importProjectInput" type="file" accept=".json,.leaderboard.json,application/json"></label>
+              <button id="downloadProjectBtn" class="btn">دانلود پروژه</button>
+              <label class="btn ghost file-btn">وارد کردن پروژه<input id="importProjectInput" type="file" accept=".json,.leaderboard.json,application/json"></label>
             </div>
           </article>
 
           <article class="card">
-            <h3>Cloud-synced project file</h3>
-            <p>On Chrome/Edge desktop, choose a project file inside Google Drive, OneDrive, Dropbox, or another synced folder. Changes auto-save to that file.</p>
+            <h3>فایل پروژهٔ همگام‌شده</h3>
+            <p>در Chrome یا Edge دسکتاپ، فایل پروژه را داخل Google Drive، OneDrive، Dropbox یا پوشهٔ همگام‌شدهٔ دیگری انتخاب کنید. تغییرات خودکار در همان فایل ذخیره می‌شوند.</p>
             <div class="button-row">
-              <button id="openCloudBtn" class="btn">Open synced file</button>
-              <button id="createCloudBtn" class="btn ghost">Create synced file</button>
-              <button id="saveCloudBtn" class="btn ghost" disabled>Save now</button>
-              <button id="reloadCloudBtn" class="btn ghost" disabled>Load linked file</button>
+              <button id="openCloudBtn" class="btn">باز کردن فایل همگام‌شده</button>
+              <button id="createCloudBtn" class="btn ghost">ساخت فایل همگام‌شده</button>
+              <button id="saveCloudBtn" class="btn ghost" disabled>ذخیره الآن</button>
+              <button id="reloadCloudBtn" class="btn ghost" disabled>بارگذاری فایل متصل</button>
             </div>
-            <div id="cloudStatus" class="muted">No synced project file linked.</div>
+            <div id="cloudStatus" class="muted">هنوز فایل همگام‌شده‌ای متصل نیست.</div>
           </article>
 
           <article class="card">
-            <h3>Revision history</h3>
-            <p>Recent local snapshots let you recover accidental edits on this device.</p>
+            <h3>تاریخچهٔ نسخه‌ها</h3>
+            <p>نسخه‌های اخیر محلی کمک می‌کنند ویرایش‌های اشتباه را روی همین دستگاه برگردانید.</p>
             <div class="history-row">
               <select id="historySelect"></select>
-              <button id="restoreHistoryBtn" class="btn ghost">Restore</button>
+              <button id="restoreHistoryBtn" class="btn ghost">بازیابی</button>
             </div>
           </article>
 
           <article class="card strong-card">
-            <h3>Emergency offline backup</h3>
-            <p>Downloads a ZIP containing your editable project, CSV data, high-resolution PNG, PDF, source files, and a standalone HTML app that opens without internet.</p>
-            <button id="emergencyBtn2" class="btn danger">Download complete backup ZIP</button>
+            <h3>پشتیبان اضطراری آفلاین</h3>
+            <p>یک فایل ZIP شامل پروژهٔ قابل ویرایش، داده‌های CSV، PNG و PDF باکیفیت، فایل‌های برنامه و نسخهٔ مستقل HTML می‌سازد که بدون اینترنت باز می‌شود.</p>
+            <button id="emergencyBtn2" class="btn danger">دانلود پشتیبان کامل ZIP</button>
           </article>
         </div>
       </section>
@@ -263,7 +269,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     <aside class="preview-panel">
       <div class="preview-toolbar">
         <div>
-          <strong>Live preview</strong>
+          <strong>پیش‌نمایش زنده</strong>
           <span id="previewMeta" class="muted"></span>
         </div>
         <div class="button-row compact">
@@ -277,7 +283,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     </aside>
   </main>
 
-  <footer class="footer-note">Autosave is local-first. The app remains usable offline after installation or after opening it once on a properly hosted PWA.</footer>
+  <footer class="footer-note">ذخیرهٔ خودکار ابتدا روی دستگاه انجام می‌شود. پس از یک‌بار باز کردن یا نصب برنامه، در حالت آفلاین هم قابل استفاده است.</footer>
 
   <script>window.INITIAL_PROJECT={"version":3,"name":"University Leaderboard","modifiedAt":"","settings":{"title":"LEADERBOARD","subtitle":"Semester","capacity":48,"guideInterval":4,"exportScale":3,"pngDpi":300,"groupCircleColor":"#0B566B","background":"#F7F7F7","studentFont":"Doran","assignmentFont":"Kalameh","persianDigits":true},"students":[],"assignments":[{"id":"a1","order":1,"name":"تمرین 1","max":4,"color":"#27B7D7"},{"id":"a2","order":2,"name":"تمرین 2","max":4,"color":"#FDB36B"},{"id":"a3","order":3,"name":"تمرین 3","max":4,"color":"#F57C00"},{"id":"a4","order":4,"name":"تمرین 4","max":4,"color":"#8FB36A"},{"id":"a5","order":5,"name":"تمرین 5","max":4,"color":"#B79BDA"},{"id":"a6","order":6,"name":"تمرین 6","max":4,"color":"#7E94AA"},{"id":"a7","order":7,"name":"تمرین 7","max":4,"color":"#F2C84B"}],"scores":{}};</script>
   <script>(() => {
@@ -386,11 +392,11 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state.project));
       state.dirty = false;
-      $('saveStatus').textContent = 'Saved locally';
+      $('saveStatus').textContent = 'روی این دستگاه ذخیره شد';
       maybeSnapshot();
       await autosaveCloud();
     } catch (e) {
-      $('saveStatus').textContent = 'Local save failed';
+      $('saveStatus').textContent = 'ذخیرهٔ محلی ناموفق بود';
       console.error(e);
     }
   }
@@ -438,11 +444,11 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   function renderScoresEditor() {
     const students = sortedStudents();
     const assignments = sortedAssignments();
-    let html = '<table><thead><tr><th>Group</th><th>Student</th>';
-    for (const a of assignments) html += `<th title="${escapeHtml(a.name)}"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${a.color};margin-right:5px"></span>${escapeHtml(a.name)}</th>`;
+    let html = '<table><thead><tr><th>گروه</th><th>دانشجو</th>';
+    for (const a of assignments) html += `<th><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${a.color};margin-left:5px"></span><input class="header-assignment-input" data-assignment-name="${a.id}" value="${escapeHtml(a.name)}" aria-label="نام تمرین"></th>`;
     html += '</tr></thead><tbody>';
     for (const s of students) {
-      html += `<tr><td class="group-cell">${escapeHtml(dispNum(s.group))}</td><td class="student-cell">${escapeHtml(s.name)}</td>`;
+      html += `<tr><td class="group-cell">${escapeHtml(dispNum(s.group))}</td><td class="student-cell"><input class="student-name-inline" data-student-name="${s.id}" value="${escapeHtml(s.name)}" aria-label="نام دانشجو"></td>`;
       for (const a of assignments) {
         const v = state.project.scores[s.id]?.[a.id];
         html += `<td><input class="score-input" inputmode="decimal" data-student="${s.id}" data-assignment="${a.id}" value="${v == null ? '' : escapeHtml(fmt(v))}" aria-label="${escapeHtml(s.name)} ${escapeHtml(a.name)}" placeholder="—"></td>`;
@@ -451,6 +457,24 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     }
     html += '</tbody></table>';
     $('scoresWrap').innerHTML = html;
+    $('scoresWrap').querySelectorAll('.header-assignment-input').forEach(input => {
+      input.addEventListener('input', () => {
+        const a = state.project.assignments.find(x => x.id === input.dataset.assignmentName);
+        if (!a) return;
+        a.name = input.value || 'تمرین بدون نام';
+        markDirty('نام تمرین تغییر کرد');
+      });
+      input.addEventListener('blur', () => renderAssignmentsEditor());
+    });
+    $('scoresWrap').querySelectorAll('.student-name-inline').forEach(input => {
+      input.addEventListener('input', () => {
+        const student = state.project.students.find(x => x.id === input.dataset.studentName);
+        if (!student) return;
+        student.name = input.value || 'دانشجوی بدون نام';
+        markDirty('نام دانشجو تغییر کرد');
+      });
+      input.addEventListener('blur', () => renderStudentsEditor());
+    });
     $('scoresWrap').querySelectorAll('.score-input').forEach(input => {
       input.addEventListener('input', () => {
         const sid = input.dataset.student, aid = input.dataset.assignment;
@@ -463,7 +487,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
           v = clamp(v, 0, a.max);
           state.project.scores[sid][aid] = v;
         }
-        markDirty('Score changed');
+        markDirty('نمره تغییر کرد');
       });
       input.addEventListener('blur', () => {
         const sid = input.dataset.student, aid = input.dataset.assignment;
@@ -475,7 +499,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 
   function renderAssignmentsEditor() {
     const assignments = sortedAssignments();
-    let html = '<div class="assignments-table"><table><thead><tr><th>#</th><th>Architecture icon</th><th>Assignment title</th><th>Max</th><th>Color</th><th></th></tr></thead><tbody>';
+    let html = '<div class="assignments-table"><table><thead><tr><th>#</th><th>آیکن معماری</th><th>نام تمرین</th><th>نمرهٔ کامل</th><th>رنگ</th><th></th></tr></thead><tbody>';
     assignments.forEach((a, i) => {
       html += `<tr data-id="${a.id}"><td>${escapeHtml(dispNum(i+1))}</td><td><span class="icon-chip">${iconSvg(ICONS[i % ICONS.length])}</span></td>`+
         `<td><input class="text-input assignment-name" data-field="name" value="${escapeHtml(a.name)}"></td>`+
@@ -488,18 +512,18 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     $('assignmentsWrap').querySelectorAll('tr[data-id]').forEach(row => {
       const id = row.dataset.id;
       const a = state.project.assignments.find(x => x.id === id);
-      row.querySelector('[data-field=name]').addEventListener('input', e => { a.name = e.target.value || 'Untitled'; markDirty('Assignment renamed'); renderScoresEditor(); });
+      row.querySelector('[data-field=name]').addEventListener('input', e => { a.name = e.target.value || 'Untitled'; markDirty('نام تمرین تغییر کرد'); renderScoresEditor(); });
       row.querySelector('[data-field=max]').addEventListener('change', e => {
         a.max = Math.max(.25, num(toLatinDigits(e.target.value).replace(',','.'), 4)); e.target.value = fmt(a.max);
         for (const s of state.project.students) { const v = state.project.scores[s.id][a.id]; if (v != null) state.project.scores[s.id][a.id] = Math.min(v, a.max); }
-        markDirty('Assignment max changed'); renderScoresEditor();
+        markDirty('نمرهٔ کامل تمرین تغییر کرد'); renderScoresEditor();
       });
       const colorText = row.querySelector('[data-field=color]');
       const colorPicker = row.querySelector('[data-field=colorPicker]');
       const applyColor = (v) => {
         if (!/^#[0-9A-Fa-f]{6}$/.test(v)) return;
         a.color = v.toUpperCase(); colorText.value = a.color; colorPicker.value = a.color;
-        markDirty('Assignment color changed'); renderScoresEditor();
+        markDirty('رنگ تمرین تغییر کرد'); renderScoresEditor();
       };
       colorText.addEventListener('change', e => applyColor(e.target.value));
       colorPicker.addEventListener('input', e => applyColor(e.target.value));
@@ -539,13 +563,13 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 
   function renderStudentsEditor() {
     const students = sortedStudents();
-    let html = '<div class="students-table"><table><thead><tr><th>Group</th><th>Order</th><th>Name</th><th>Transcription</th><th>Note</th><th></th></tr></thead><tbody>';
+    let html = '<div class="students-table"><table><thead><tr><th>گروه</th><th>ترتیب</th><th>نام</th><th>وضعیت خوانش</th><th>یادداشت</th><th></th></tr></thead><tbody>';
     students.forEach(s => {
       html += `<tr data-id="${s.id}" class="confidence-${escapeHtml(s.confidence)}">`+
         `<td><input class="number-input" data-field="group" value="${s.group}"></td>`+
         `<td><input class="number-input" data-field="order" value="${s.order}"></td>`+
         `<td><input class="text-input assignment-name" data-field="name" value="${escapeHtml(s.name)}"></td>`+
-        `<td><select data-field="confidence"><option value="high" ${s.confidence==='high'?'selected':''}>Confirmed</option><option value="medium" ${s.confidence==='medium'?'selected':''}>Check</option><option value="low" ${s.confidence==='low'?'selected':''}>Uncertain</option></select></td>`+
+        `<td><select data-field="confidence"><option value="high" ${s.confidence==='high'?'selected':''}>تأییدشده</option><option value="medium" ${s.confidence==='medium'?'selected':''}>نیاز به بررسی</option><option value="low" ${s.confidence==='low'?'selected':''}>نامطمئن</option></select></td>`+
         `<td><input class="text-input" data-field="note" value="${escapeHtml(s.note)}"></td>`+
         `<td><div class="row-actions"><button type="button" data-act="delete" title="Delete">×</button></div></td></tr>`;
     });
@@ -557,7 +581,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
         row.querySelector(`[data-field=${f}]`).addEventListener(f === 'name' || f === 'note' ? 'input' : 'change', e => {
           if (f === 'group' || f === 'order') s[f] = Math.max(1, Math.round(num(toLatinDigits(e.target.value), s[f])));
           else s[f] = e.target.value;
-          markDirty('Student changed');
+          markDirty('مشخصات دانشجو تغییر کرد');
           if (f !== 'note') renderScoresEditor();
         });
       }
@@ -586,22 +610,26 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   function renderSettingsEditor() {
     const s = state.project.settings;
     const fields = [
-      ['title','Title','text'], ['subtitle','Subtitle','text'], ['capacity','Chart capacity','number'], ['guideInterval','Guide interval','number'],
-      ['exportScale','Export scale','number'], ['pngDpi','PNG / PDF DPI','number'], ['groupCircleColor','Group circle','color'], ['background','Background','color'],
-      ['studentFont','Student name font','text'], ['assignmentFont','Assignment title font','text'], ['persianDigits','Persian digits','checkbox']
+      ['title','عنوان','text'], ['subtitle','زیرعنوان','text'], ['capacity','ظرفیت نمودار','number'], ['guideInterval','فاصلهٔ خطوط راهنما','number'],
+      ['exportScale','مقیاس خروجی','number'], ['pngDpi','DPI خروجی PNG / PDF','number'], ['groupCircleColor','رنگ دایرهٔ گروه','color'], ['background','رنگ پس‌زمینه','color'],
+      ['studentFont','فونت نام دانشجوها','text'], ['assignmentFont','فونت عنوان تمرین‌ها','text'], ['persianDigits','اعداد فارسی','checkbox']
     ];
     $('settingsWrap').innerHTML = fields.map(([key,label,type]) => {
-      if (type === 'checkbox') return `<div class="setting-card"><label>${label}</label><label class="switch-row"><input id="setting_${key}" type="checkbox" ${s[key]?'checked':''}> Enabled</label></div>`;
+      if (type === 'checkbox') return `<div class="setting-card"><label>${label}</label><label class="switch-row"><input id="setting_${key}" type="checkbox" ${s[key]?'checked':''}> فعال</label></div>`;
       if (type === 'color') return `<div class="setting-card"><label for="setting_${key}">${label}</label><input id="setting_${key}" type="color" value="${escapeHtml(s[key])}"></div>`;
       return `<div class="setting-card"><label for="setting_${key}">${label}</label><input id="setting_${key}" type="${type}" value="${escapeHtml(s[key])}" ${type==='number'?'step="0.25"':''}></div>`;
-    }).join('');
+    }).join('') + `
+      <div class="setting-card"><label>بارگذاری فونت Doran روی این دستگاه</label><input id="fontFileDoran" type="file" accept=".ttf,.otf,.woff,.woff2"><small class="muted">برای نمایش دقیق نام دانشجوها. فایل فونت فقط روی همین دستگاه ذخیره می‌شود.</small></div>
+      <div class="setting-card"><label>بارگذاری فونت Kalameh روی این دستگاه</label><input id="fontFileKalameh" type="file" accept=".ttf,.otf,.woff,.woff2"><small class="muted">برای نمایش دقیق عنوان تمرین‌ها. فایل فونت فقط روی همین دستگاه ذخیره می‌شود.</small></div>`;
+    $('fontFileDoran').addEventListener('change', e => { if(e.target.files[0]) installLocalFont('Doran', e.target.files[0]); });
+    $('fontFileKalameh').addEventListener('change', e => { if(e.target.files[0]) installLocalFont('Kalameh', e.target.files[0]); });
     fields.forEach(([key,,type]) => {
       const el = $(`setting_${key}`);
       el.addEventListener(type === 'text' ? 'input' : 'change', () => {
         if (type === 'checkbox') s[key] = el.checked;
         else if (type === 'number') s[key] = Math.max(key === 'exportScale' ? 1 : 1, num(el.value, s[key]));
         else s[key] = el.value;
-        markDirty('Settings changed');
+        markDirty('تنظیمات تغییر کرد');
         if (key === 'studentFont' || key === 'assignmentFont') updateFontWarning();
         if (key === 'persianDigits') { renderScoresEditor(); renderAssignmentsEditor(); }
       });
@@ -617,7 +645,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     const b = $('fontBanner');
     if (missing.length) {
       b.hidden = false;
-      b.textContent = `Font warning: ${missing.join(' and ')} not detected on this device. The app will use a fallback until you install the font locally.`;
+      b.textContent = `فونت ${missing.join(' و ')} روی این دستگاه پیدا نشد. برای ظاهر دقیق نسخهٔ محلی، فونت را از بخش تنظیمات روی همین دستگاه بارگذاری یا نصب کنید.`;
     } else b.hidden = true;
   }
 
@@ -830,19 +858,43 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     finally{$('emergencyBtn').disabled=$('emergencyBtn2').disabled=false;}
   }
 
+  async function registerFontBuffer(family, buffer){
+    try { const face = new FontFace(family, buffer); await face.load(); document.fonts.add(face); return true; }
+    catch(e){ console.warn('Font load failed', family, e); return false; }
+  }
+  async function installLocalFont(family, file){
+    try {
+      const buffer = await file.arrayBuffer();
+      if(await registerFontBuffer(family, buffer)){
+        await dbSet('font:'+family, buffer);
+        state.project.settings[family==='Doran'?'studentFont':'assignmentFont']=family;
+        markDirty('فونت بارگذاری شد');
+        updateFontWarning();
+        renderPreview();
+        alert(`فونت ${family} روی این دستگاه ذخیره شد.`);
+      }
+    } catch(e){ alert('بارگذاری فونت انجام نشد: '+e.message); }
+  }
+  async function restoreCustomFonts(){
+    for(const family of ['Doran','Kalameh']){
+      try { const buffer=await dbGet('font:'+family); if(buffer) await registerFontBuffer(family, buffer); }
+      catch(e){ console.warn(e); }
+    }
+  }
+
   function dbOpen(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(HANDLE_STORE))req.result.createObjectStore(HANDLE_STORE);};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
   async function dbSet(key,val){const db=await dbOpen();return new Promise((res,rej)=>{const tx=db.transaction(HANDLE_STORE,'readwrite');tx.objectStore(HANDLE_STORE).put(val,key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
   async function dbGet(key){const db=await dbOpen();return new Promise((res,rej)=>{const req=db.transaction(HANDLE_STORE).objectStore(HANDLE_STORE).get(key);req.onsuccess=()=>res(req.result);req.onerror=()=>rej(req.error);});}
   async function restoreCloudHandle(){if(!('showOpenFilePicker' in window)){$('cloudStatus').textContent='Synced-file mode needs Chrome or Edge on desktop. Project download/import still works everywhere.';return;}try{const h=await dbGet(HANDLE_KEY);if(h){state.cloudHandle=h;state.cloudPermission=await h.queryPermission({mode:'readwrite'});updateCloudUi();}}catch(e){console.warn(e);}}
-  function updateCloudUi(){const h=state.cloudHandle;$('saveCloudBtn').disabled=!h;$('reloadCloudBtn').disabled=!h;$('cloudStatus').textContent=h?`Linked: ${h.name} · ${state.cloudPermission==='granted'?'autosave enabled':'click Save now to grant write access'}`:'No synced project file linked.';}
+  function updateCloudUi(){const h=state.cloudHandle;$('saveCloudBtn').disabled=!h;$('reloadCloudBtn').disabled=!h;$('cloudStatus').textContent=h?`Linked: ${h.name} · ${state.cloudPermission==='granted'?'autosave enabled':'click ذخیره الآن to grant write access'}`:'هنوز فایل همگام‌شده‌ای متصل نیست.';}
   async function requestHandlePermission(){if(!state.cloudHandle)return false;let p=await state.cloudHandle.queryPermission({mode:'readwrite'});if(p!=='granted')p=await state.cloudHandle.requestPermission({mode:'readwrite'});state.cloudPermission=p;updateCloudUi();return p==='granted';}
   async function writeCloud(forcePermission=false){if(!state.cloudHandle)return;if(forcePermission&&!await requestHandlePermission())return;if(state.cloudPermission!=='granted')return;const w=await state.cloudHandle.createWritable();await w.write(projectJson());await w.close();state.lastCloudWrite=Date.now();$('cloudStatus').textContent=`Linked: ${state.cloudHandle.name} · saved ${new Date().toLocaleTimeString()}`;}
-  async function autosaveCloud(){if(state.cloudHandle&&state.cloudPermission==='granted'){try{await writeCloud(false);}catch(e){console.warn('Cloud-file autosave failed',e);$('cloudStatus').textContent='Synced file save failed. Use Save now.';}}}
-  async function createCloud(){if(!('showSaveFilePicker' in window)){alert('This browser does not support direct synced-file access. Use Download project instead.');return;}const h=await showSaveFilePicker({suggestedName:'University_Leaderboard.leaderboard.json',types:[{description:'Leaderboard project',accept:{'application/json':['.json']}}]});state.cloudHandle=h;await dbSet(HANDLE_KEY,h);state.cloudPermission=await h.requestPermission({mode:'readwrite'});await writeCloud(false);updateCloudUi();}
-  async function openCloud(){if(!('showOpenFilePicker' in window)){alert('This browser does not support direct synced-file access. Use Import project instead.');return;}const [h]=await showOpenFilePicker({types:[{description:'Leaderboard project',accept:{'application/json':['.json']}}],multiple:false});state.cloudHandle=h;await dbSet(HANDLE_KEY,h);state.cloudPermission=await h.requestPermission({mode:'readwrite'});await loadCloud();updateCloudUi();}
+  async function autosaveCloud(){if(state.cloudHandle&&state.cloudPermission==='granted'){try{await writeCloud(false);}catch(e){console.warn('Cloud-file autosave failed',e);$('cloudStatus').textContent='Synced file save failed. Use ذخیره الآن.';}}}
+  async function createCloud(){if(!('showSaveFilePicker' in window)){alert('This browser does not support direct synced-file access. Use دانلود پروژه instead.');return;}const h=await showSaveFilePicker({suggestedName:'University_Leaderboard.leaderboard.json',types:[{description:'Leaderboard project',accept:{'application/json':['.json']}}]});state.cloudHandle=h;await dbSet(HANDLE_KEY,h);state.cloudPermission=await h.requestPermission({mode:'readwrite'});await writeCloud(false);updateCloudUi();}
+  async function openCloud(){if(!('showOpenFilePicker' in window)){alert('This browser does not support direct synced-file access. Use وارد کردن پروژه instead.');return;}const [h]=await showOpenFilePicker({types:[{description:'Leaderboard project',accept:{'application/json':['.json']}}],multiple:false});state.cloudHandle=h;await dbSet(HANDLE_KEY,h);state.cloudPermission=await h.requestPermission({mode:'readwrite'});await loadCloud();updateCloudUi();}
   async function loadCloud(){if(!state.cloudHandle)return;const file=await state.cloudHandle.getFile();const p=normalizeProject(JSON.parse(await file.text()));if(confirm(`Load ${state.cloudHandle.name}? This will replace the current local view.`)){state.project=p;localStorage.setItem(STORAGE_KEY,JSON.stringify(p));maybeSnapshot(true);renderAllEditors();}}
 
-  function handleImport(file){const reader=new FileReader();reader.onload=()=>{try{const p=normalizeProject(JSON.parse(reader.result));state.project=p;localStorage.setItem(STORAGE_KEY,JSON.stringify(p));maybeSnapshot(true);renderAllEditors();markDirty('Project imported');}catch(e){alert('That file is not a valid Leaderboard project.');}};reader.readAsText(file);}
+  function handleImport(file){const reader=new FileReader();reader.onload=()=>{try{const p=normalizeProject(JSON.parse(reader.result));state.project=p;localStorage.setItem(STORAGE_KEY,JSON.stringify(p));maybeSnapshot(true);renderAllEditors();markDirty('پروژه وارد شد');}catch(e){alert('That file is not a valid Leaderboard project.');}};reader.readAsText(file);}
 
   function setupTabs(){document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===btn));document.querySelectorAll('.tab-page').forEach(x=>x.classList.remove('active'));$(`tab-${btn.dataset.tab}`).classList.add('active');}));}
   function setupNetwork(){const update=()=>{$('offlineBanner').hidden=navigator.onLine;};window.addEventListener('online',update);window.addEventListener('offline',update);update();}
@@ -850,17 +902,17 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 
   function bindActions(){
     $('addAssignmentBtn').addEventListener('click',addAssignment);$('addStudentBtn').addEventListener('click',addStudent);
-    $('clearScoresBtn').addEventListener('click',()=>{if(!confirm('Clear every score? Student and assignment setup will remain.'))return;for(const s of state.project.students)for(const a of state.project.assignments)state.project.scores[s.id][a.id]=null;markDirty('Scores cleared');renderScoresEditor();});
+    $('clearScoresBtn').addEventListener('click',()=>{if(!confirm('Clear every score? Student and assignment setup will remain.'))return;for(const s of state.project.students)for(const a of state.project.assignments)state.project.scores[s.id][a.id]=null;markDirty('نمره‌ها پاک شدند');renderScoresEditor();});
     $('downloadProjectBtn').addEventListener('click',downloadProject);$('importProjectInput').addEventListener('change',e=>{if(e.target.files[0])handleImport(e.target.files[0]);e.target.value='';});
     $('exportPngBtn').addEventListener('click',()=>exportPng(true));$('exportPdfBtn').addEventListener('click',()=>exportPdf(true));
     $('emergencyBtn').addEventListener('click',emergencyBackup);$('emergencyBtn2').addEventListener('click',emergencyBackup);
     $('createCloudBtn').addEventListener('click',createCloud);$('openCloudBtn').addEventListener('click',openCloud);$('saveCloudBtn').addEventListener('click',async()=>{if(await requestHandlePermission())await writeCloud(false);});$('reloadCloudBtn').addEventListener('click',loadCloud);
-    $('restoreHistoryBtn').addEventListener('click',()=>{const h=history(),i=Number($('historySelect').value);if(!h[i])return;if(confirm('Restore this snapshot? A new snapshot of the current state will be kept first.')){maybeSnapshot(true);state.project=normalizeProject(h[i].project);localStorage.setItem(STORAGE_KEY,JSON.stringify(state.project));renderAllEditors();}});
+    $('restoreHistoryBtn').addEventListener('click',()=>{const h=history(),i=Number($('historySelect').value);if(!h[i])return;if(confirm('بازیابی this snapshot? A new snapshot of the current state will be kept first.')){maybeSnapshot(true);state.project=normalizeProject(h[i].project);localStorage.setItem(STORAGE_KEY,JSON.stringify(state.project));renderAllEditors();}});
     window.addEventListener('beforeunload',()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.project));}catch{}});
   }
 
   async function init(){
-    state.project=loadProject();setupTabs();setupNetwork();setupPwa();bindActions();renderAllEditors();maybeSnapshot(true);await restoreCloudHandle();
+    state.project=loadProject();setupTabs();setupNetwork();setupPwa();bindActions();await restoreCustomFonts();renderAllEditors();maybeSnapshot(true);await restoreCloudHandle();
   }
   init();
 })();
