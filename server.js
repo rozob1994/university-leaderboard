@@ -428,9 +428,11 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-initSharedDb().finally(() => {
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`University Leaderboard secure server listening on port ${PORT}`);
-    console.log(`Configured admin users: ${USERS.map(u => u.username).join(', ')}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`University Leaderboard secure server listening on port ${PORT}`);
+  console.log(`Configured admin users: ${USERS.map(u => u.username).join(', ')}`);
+  initSharedDb().catch(err => {
+    sharedDbError = String(err && err.message || err);
+    console.error('Shared data initialization failed after server start:', sharedDbError);
   });
 });
