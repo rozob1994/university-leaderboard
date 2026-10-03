@@ -91,22 +91,28 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 .student-group-title { display:flex; align-items:center; gap:8px; font-weight:800; }
 .group-color-dot { width:13px; height:13px; border-radius:50%; background:var(--group-color); flex:0 0 auto; box-shadow:0 0 0 3px #fff,0 0 0 4px var(--border); }
 .student-group-list { display:grid; }
-.student-row-card { display:grid; grid-template-columns:38px minmax(160px,1fr) 112px 38px; align-items:center; gap:8px; min-height:52px; padding:7px 10px; border-bottom:1px solid var(--border); background:#fff; }
+.student-row-card { display:grid; grid-template-columns:38px minmax(160px,1fr) 112px 62px 38px; align-items:center; gap:8px; min-height:52px; padding:7px 10px; border-bottom:1px solid var(--border); background:#fff; }
+.student-row-card.pointer-dragging { opacity:.48; }
+.student-row-card.pointer-target { box-shadow:inset 0 3px 0 var(--group-color); }
 .student-row-card:last-child { border-bottom:0; }
 .student-row-card.dragging { opacity:.42; }
 .student-row-card.drag-over { box-shadow:inset 0 3px 0 var(--group-color); }
-.drag-handle { width:34px; height:34px; display:grid; place-items:center; border:0; background:transparent; border-radius:8px; color:#72787d; cursor:grab; touch-action:none; }
+.drag-handle { width:34px; height:34px; display:grid; place-items:center; border:0; background:transparent; border-radius:8px; color:#72787d; cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
 .drag-handle:active { cursor:grabbing; }
 .drag-handle:hover, .drag-handle:focus-visible { background:#f0f2f3; color:#333; outline:none; }
 .drag-lines { display:grid; gap:3px; width:18px; }
 .drag-lines i { display:block; height:2px; border-radius:2px; background:currentColor; }
 .student-list-name { font-family:Doran,Tahoma,Arial,sans-serif; direction:rtl; text-align:right; }
 .student-group-select { min-height:36px; border:1px solid #d5d9dc; border-radius:8px; padding:6px 8px; background:#fff; }
+.student-move-fallback { display:flex; gap:3px; direction:ltr; }
+.student-move-fallback button { width:28px; height:30px; border:1px solid var(--border); border-radius:7px; background:#fff; color:#5e666b; padding:0; }
+.student-move-fallback button:hover, .student-move-fallback button:focus-visible { background:#f0f2f3; outline:none; }
 .student-delete { width:32px; height:32px; border:1px solid var(--border); border-radius:8px; background:#fff; color:#8b3037; }
+.drag-float { position:fixed; z-index:9999; pointer-events:none; max-width:240px; padding:9px 12px; border-radius:10px; background:#fff; border:1px solid var(--border); box-shadow:0 12px 30px rgba(20,35,42,.2); font-family:Doran,Tahoma,Arial,sans-serif; direction:rtl; opacity:.95; transform:translate(-50%,-120%); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .student-delete:hover { background:#fff1f2; }
 .empty-students { padding:28px; text-align:center; color:var(--muted); border:1px dashed var(--border); border-radius:10px; }
 @media (max-width:660px) {
-  .student-row-card { grid-template-columns:36px minmax(130px,1fr) 96px 34px; gap:5px; padding:6px; }
+  .student-row-card { grid-template-columns:36px minmax(120px,1fr) 88px 58px 34px; gap:5px; padding:6px; }
   .student-group-head { align-items:flex-start; }
 }
 .text-input, .number-input, .settings-grid input, .settings-grid select {
@@ -883,9 +889,10 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       for (const st of members) {
         const opts = groupOptions.replace(`value="${st.group}"`, `value="${st.group}" selected`);
         html += `<div class="student-row-card" data-id="${st.id}" data-group="${group}" style="--group-color:${color}">`;
-        html += `<button type="button" class="drag-handle" draggable="true" aria-label="جابجایی ${escapeHtml(st.name)}" title="برای تغییر ترتیب بکشید"><span class="drag-lines" aria-hidden="true"><i></i><i></i><i></i></span></button>`;
+        html += `<button type="button" class="drag-handle" aria-label="جابجایی ${escapeHtml(st.name)}" title="برای تغییر ترتیب بکشید"><span class="drag-lines" aria-hidden="true"><i></i><i></i><i></i></span></button>`;
         html += `<input class="text-input student-list-name" data-field="name" value="${escapeHtml(st.name)}" aria-label="نام دانشجو">`;
         html += `<select class="student-group-select" data-field="group" aria-label="گروه دانشجو">${opts}</select>`;
+        html += `<div class="student-move-fallback" aria-label="جابجایی بدون کشیدن"><button type="button" data-act="up" aria-label="یک جایگاه بالاتر">↑</button><button type="button" data-act="down" aria-label="یک جایگاه پایین‌تر">↓</button></div>`;
         html += `<button type="button" class="student-delete" data-act="delete" aria-label="حذف ${escapeHtml(st.name)}">×</button>`;
         html += '</div>';
       }
@@ -923,48 +930,79 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       });
 
       row.querySelector('[data-act=delete]').addEventListener('click', () => deleteStudent(st.id));
+      row.querySelector('[data-act=up]').addEventListener('click', () => moveStudentWithinGroup(st.id,-1));
+      row.querySelector('[data-act=down]').addEventListener('click', () => moveStudentWithinGroup(st.id,1));
 
-      dragHandle.addEventListener('dragstart', e => {
-        state.dragStudentId = st.id;
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', st.id);
-        setTimeout(()=>row.classList.add('dragging'),0);
-      });
-      dragHandle.addEventListener('dragend', () => {
-        state.dragStudentId = null;
-        document.querySelectorAll('.student-row-card').forEach(r=>r.classList.remove('dragging','drag-over'));
-      });
       dragHandle.addEventListener('keydown', e => {
         if (!['ArrowUp','ArrowDown'].includes(e.key)) return;
         e.preventDefault();
         moveStudentWithinGroup(st.id, e.key==='ArrowUp' ? -1 : 1);
       });
 
-      row.addEventListener('dragover', e => {
-        if (!state.dragStudentId || state.dragStudentId===st.id) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect='move';
-        row.classList.add('drag-over');
-      });
-      row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
-      row.addEventListener('drop', e => {
-        e.preventDefault();
-        row.classList.remove('drag-over');
-        const dragged = state.dragStudentId || e.dataTransfer.getData('text/plain');
-        if (dragged) reorderStudentByDrop(dragged, st.group, st.id);
-      });
-    });
+      dragHandle.addEventListener('pointerdown', e => {
+        if (e.button != null && e.button !== 0) return;
+        const startX=e.clientX, startY=e.clientY;
+        let active=false, targetGroup=st.group, targetStudentId=null, ghost=null;
+        state.dragStudentId=st.id;
+        dragHandle.setPointerCapture?.(e.pointerId);
 
-    $('studentsWrap').querySelectorAll('.student-group-card').forEach(card => {
-      card.addEventListener('dragover', e => {
-        if (!state.dragStudentId || e.target.closest('.student-row-card')) return;
-        e.preventDefault();
-      });
-      card.addEventListener('drop', e => {
-        if (e.target.closest('.student-row-card')) return;
-        e.preventDefault();
-        const dragged = state.dragStudentId || e.dataTransfer.getData('text/plain');
-        if (dragged) reorderStudentByDrop(dragged, Number(card.dataset.group), null);
+        const clearTargets=()=>document.querySelectorAll('.student-row-card').forEach(r=>r.classList.remove('pointer-target'));
+        const cleanup=()=>{
+          row.classList.remove('pointer-dragging');
+          clearTargets();
+          if (ghost) ghost.remove();
+          ghost=null;
+          state.dragStudentId=null;
+        };
+        const move=e2=>{
+          const distance=Math.hypot(e2.clientX-startX,e2.clientY-startY);
+          if(!active && distance<7) return;
+          if(!active){
+            active=true;
+            row.classList.add('pointer-dragging');
+            ghost=document.createElement('div');
+            ghost.className='drag-float';
+            ghost.textContent=st.name;
+            document.body.appendChild(ghost);
+          }
+          e2.preventDefault();
+          if(ghost){ghost.style.left=e2.clientX+'px';ghost.style.top=e2.clientY+'px';}
+
+          if(e2.clientY<70) window.scrollBy({top:-10,behavior:'auto'});
+          else if(e2.clientY>window.innerHeight-70) window.scrollBy({top:10,behavior:'auto'});
+
+          clearTargets();
+          const under=document.elementFromPoint(e2.clientX,e2.clientY);
+          const targetRow=under?.closest?.('.student-row-card');
+          const targetCard=under?.closest?.('.student-group-card');
+          if(targetRow && targetRow.dataset.id!==st.id){
+            targetRow.classList.add('pointer-target');
+            targetGroup=Number(targetRow.dataset.group);
+            targetStudentId=targetRow.dataset.id;
+          } else if(targetCard){
+            targetGroup=Number(targetCard.dataset.group);
+            targetStudentId=null;
+          }
+        };
+        const end=e2=>{
+          dragHandle.removeEventListener('pointermove',move);
+          dragHandle.removeEventListener('pointerup',end);
+          dragHandle.removeEventListener('pointercancel',cancel);
+          try{dragHandle.releasePointerCapture?.(e2.pointerId);}catch{}
+          if(active) reorderStudentByDrop(st.id,targetGroup,targetStudentId);
+          cleanup();
+        };
+        const cancel=e2=>{
+          dragHandle.removeEventListener('pointermove',move);
+          dragHandle.removeEventListener('pointerup',end);
+          dragHandle.removeEventListener('pointercancel',cancel);
+          try{dragHandle.releasePointerCapture?.(e2.pointerId);}catch{}
+          cleanup();
+        };
+
+        dragHandle.addEventListener('pointermove',move,{passive:false});
+        dragHandle.addEventListener('pointerup',end);
+        dragHandle.addEventListener('pointercancel',cancel);
       });
     });
   }
