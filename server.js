@@ -384,7 +384,7 @@ const ALLOWED_FILES = new Set([
   'icon.svg'
 ]);
 function serveProtectedFile(req, res, pathname) {
-  let file = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+  let file = pathname === '/' ? 'app.html' : pathname.replace(/^\/+/, '');
   if (!ALLOWED_FILES.has(file)) return send(res, 404, 'Not found');
   const full = path.join(ROOT, file);
   fs.readFile(full, (err, data) => {
