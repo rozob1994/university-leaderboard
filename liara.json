@@ -1,5 +1,11 @@
 {
+  "port": 10000,
   "build": {
     "location": "germany"
+  },
+  "node": {
+    "mirror": false,
+    "version": "22",
+    "timezone": "Asia/Tehran"
   }
 }
