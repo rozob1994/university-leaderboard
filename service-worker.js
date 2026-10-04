@@ -1,4 +1,4 @@
-const CACHE='university-leaderboard-nonblocking-load-v1';
+const CACHE='university-leaderboard-private-redirect-v1';
 const CORE=['./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',event=>{
@@ -19,6 +19,10 @@ self.addEventListener('activate',event=>{
 
 self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET') return;
+  if(self.location.hostname==='rozob1994.github.io' && event.request.mode==='navigate'){
+    event.respondWith(Response.redirect('https://university-leaderboard-private.liara.run/',302));
+    return;
+  }
   const url=new URL(event.request.url);
   if(url.origin!==self.location.origin) return;
 
