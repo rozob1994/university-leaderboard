@@ -378,6 +378,7 @@ const MIME = {
 };
 const ALLOWED_FILES = new Set([
   'index.html',
+  'app.html',
   'service-worker.js',
   'manifest.webmanifest',
   'icon.svg'
