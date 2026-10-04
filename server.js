@@ -378,13 +378,13 @@ const MIME = {
 };
 const ALLOWED_FILES = new Set([
   'index.html',
-  'app.html',
+  'app.private',
   'service-worker.js',
   'manifest.webmanifest',
   'icon.svg'
 ]);
 function serveProtectedFile(req, res, pathname) {
-  let file = pathname === '/' ? 'app.html' : pathname.replace(/^\/+/, '');
+  let file = pathname === '/' ? 'app.private' : pathname.replace(/^\/+/, '');
   if (!ALLOWED_FILES.has(file)) return send(res, 404, 'Not found');
   const full = path.join(ROOT, file);
   fs.readFile(full, (err, data) => {
@@ -393,7 +393,8 @@ function serveProtectedFile(req, res, pathname) {
     const cache = file === 'service-worker.js' || file === 'index.html'
       ? 'no-cache, no-store, must-revalidate'
       : 'private, max-age=3600';
-    send(res, 200, data, MIME[ext] || 'application/octet-stream', { 'Cache-Control': cache });
+    const type = file === 'app.private' ? 'text/html; charset=utf-8' : (MIME[ext] || 'application/octet-stream');
+    send(res, 200, data, type, { 'Cache-Control': cache });
   });
 }
 
