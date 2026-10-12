@@ -97,6 +97,8 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 .student-group-card { border:1px solid var(--border); border-inline-start:5px solid var(--group-color); border-radius:12px; overflow:hidden; background:#fff; }
 .student-group-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; background:#fafbfb; border-bottom:1px solid var(--border); }
 .student-group-title { display:flex; align-items:center; gap:8px; font-weight:800; }
+.group-number-edit { width:68px; min-height:34px; border:1px solid #d5d9dc; border-radius:8px; padding:5px 7px; background:#fff; text-align:center; font-weight:800; direction:ltr; }
+.group-number-edit:focus { outline:2px solid rgba(11,86,107,.25); border-color:var(--accent); }
 .group-color-dot { width:13px; height:13px; border-radius:50%; background:var(--group-color); flex:0 0 auto; box-shadow:0 0 0 3px #fff,0 0 0 4px var(--border); }
 .student-group-list { display:grid; }
 .student-row-card { display:grid; grid-template-columns:38px minmax(160px,1fr) 112px 62px 38px; align-items:center; gap:8px; min-height:52px; padding:7px 10px; border-bottom:1px solid var(--border); background:#fff; }
@@ -256,7 +258,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
         <div class="section-head">
           <div>
             <h2>دانشجوها</h2>
-            <p>دانشجوها خودکار بر اساس گروه کنار هم می‌مانند. برای تغییر ترتیب داخل گروه، دستگیرهٔ سه‌خط کنار نام را بکشید.</p>
+            <p>دانشجوها خودکار بر اساس گروه کنار هم می‌مانند. شمارهٔ هر گروه را از سربرگ همان گروه ویرایش کنید؛ برای تغییر ترتیب داخل گروه، دستگیرهٔ سه‌خط کنار نام را بکشید.</p>
           </div>
           <button id="addStudentBtn" class="btn small">+ افزودن دانشجو</button>
         </div>
@@ -906,7 +908,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       const members = students.filter(s => s.group === group);
       const color = groupColor(group);
       html += `<section class="student-group-card" data-group="${group}" style="--group-color:${color}">`;
-      html += `<div class="student-group-head"><div class="student-group-title"><span class="group-color-dot"></span><span>گروه ${dispNum(group)}</span><span class="muted">· ${dispNum(members.length)} نفر</span></div><button type="button" class="btn ghost small" data-add-to-group="${group}">+ دانشجو</button></div>`;
+      html += `<div class="student-group-head"><div class="student-group-title"><span class="group-color-dot"></span><span>گروه</span><input class="group-number-edit" data-group-number="${group}" type="number" min="1" step="1" value="${group}" aria-label="شماره گروه"><span class="muted">· ${dispNum(members.length)} نفر</span></div><button type="button" class="btn ghost small" data-add-to-group="${group}">+ دانشجو</button></div>`;
       html += '<div class="student-group-list">';
       for (const st of members) {
         const opts = groupOptions.replace(`value="${st.group}"`, `value="${st.group}" selected`);
@@ -925,6 +927,22 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 
     $('studentsWrap').querySelectorAll('[data-add-to-group]').forEach(btn => {
       btn.addEventListener('click', () => addStudent(Number(btn.dataset.addToGroup)));
+    });
+
+    $('studentsWrap').querySelectorAll('.group-number-edit').forEach(input => {
+      input.addEventListener('change', () => {
+        const oldGroup = Number(input.dataset.groupNumber);
+        const raw = Number(input.value);
+        if (!Number.isFinite(raw) || raw < 1 || Math.round(raw) !== raw) {
+          alert('شمارهٔ گروه باید یک عدد صحیح بزرگ‌تر از صفر باشد.');
+          input.value = oldGroup;
+          return;
+        }
+        if (!renameGroup(oldGroup, raw)) input.value = oldGroup;
+      });
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      });
     });
 
     $('studentsWrap').querySelectorAll('.student-row-card').forEach(row => {
@@ -1027,6 +1045,27 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
         dragHandle.addEventListener('pointercancel',cancel);
       });
     });
+  }
+
+  function renameGroup(oldGroup, newGroup) {
+    const day = activeClassDay();
+    oldGroup = Math.max(1, Math.round(num(oldGroup, 1)));
+    newGroup = Math.max(1, Math.round(num(newGroup, oldGroup)));
+    if (newGroup === oldGroup) return true;
+    const members = state.project.students.filter(x => (x.classDay||'monday')===day && x.group===oldGroup);
+    if (!members.length) return false;
+    const duplicate = state.project.students.some(x => (x.classDay||'monday')===day && x.group===newGroup);
+    if (duplicate) {
+      alert(`گروه ${dispNum(newGroup)} از قبل در کلاس ${classDayFa(day)} وجود دارد. یک شمارهٔ دیگر انتخاب کنید.`);
+      return false;
+    }
+    members.forEach(x => { x.group = newGroup; });
+    normalizeOrders(day, newGroup);
+    markDirty('شماره گروه تغییر کرد');
+    renderStudentsEditor();
+    renderScoresEditor();
+    renderPreview();
+    return true;
   }
 
   function reorderStudentByDrop(studentId, targetGroup, targetStudentId = null) {
