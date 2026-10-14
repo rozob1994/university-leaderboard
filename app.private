@@ -97,6 +97,9 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 .student-group-card { border:1px solid var(--border); border-inline-start:5px solid var(--group-color); border-radius:12px; overflow:hidden; background:#fff; }
 .student-group-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; background:#fafbfb; border-bottom:1px solid var(--border); }
 .student-group-title { display:flex; align-items:center; gap:8px; font-weight:800; }
+.student-group-head-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.group-delete-btn { color:var(--danger) !important; border-color:#efc9cc !important; }
+.group-delete-btn:hover { background:#fff1f2 !important; }
 .group-number-edit { width:68px; min-height:34px; border:1px solid #d5d9dc; border-radius:8px; padding:5px 7px; background:#fff; text-align:center; font-weight:800; direction:ltr; }
 .group-number-edit:focus { outline:2px solid rgba(11,86,107,.25); border-color:var(--accent); }
 .group-color-dot { width:13px; height:13px; border-radius:50%; background:var(--group-color); flex:0 0 auto; box-shadow:0 0 0 3px #fff,0 0 0 4px var(--border); }
@@ -260,7 +263,10 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
             <h2>دانشجوها</h2>
             <p>دانشجوها خودکار بر اساس گروه کنار هم می‌مانند. شمارهٔ هر گروه را از سربرگ همان گروه ویرایش کنید؛ برای تغییر ترتیب داخل گروه، دستگیرهٔ سه‌خط کنار نام را بکشید.</p>
           </div>
-          <button id="addStudentBtn" class="btn small">+ افزودن دانشجو</button>
+          <div class="button-row compact">
+            <button id="addGroupBtn" class="btn ghost small">+ افزودن گروه</button>
+            <button id="addStudentBtn" class="btn small">+ افزودن دانشجو</button>
+          </div>
         </div>
         <div id="studentsWrap"></div>
       </section>
@@ -408,6 +414,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     p.students = Array.isArray(p.students) ? p.students : [];
     p.assignments = Array.isArray(p.assignments) ? p.assignments : [];
     p.scores = p.scores || {};
+    p.groups = p.groups && typeof p.groups === 'object' ? p.groups : {};
     p.students.forEach((s, i) => {
       s.id = s.id || `s${Date.now()}_${i}`;
       s.group = Math.max(1, Math.round(num(s.group, 1)));
@@ -418,6 +425,13 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       s.classDay = s.classDay === 'thursday' ? 'thursday' : 'monday';
       p.scores[s.id] = p.scores[s.id] || {};
     });
+    for (const day of ['monday','thursday']) {
+      const saved = Array.isArray(p.groups[day]) ? p.groups[day] : [];
+      const fromStudents = p.students.filter(x => (x.classDay||'monday')===day).map(x => x.group);
+      p.groups[day] = [...new Set([...saved, ...fromStudents]
+        .map(x => Math.max(1, Math.round(num(x, 1)))))]
+        .sort((a,b)=>a-b);
+    }
     p.assignments.forEach((a, i) => {
       a.id = a.id || `a${Date.now()}_${i}`;
       a.order = i + 1;
@@ -516,6 +530,13 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       base.students, local.students, remote.students,
       ['classDay','group','order','name','confidence','note']
     );
+    merged.groups = {};
+    for (const day of ['monday','thursday']) {
+      const bv = base.groups?.[day] || [];
+      const lv = local.groups?.[day] || [];
+      const rv = remote.groups?.[day] || [];
+      merged.groups[day] = deepClone(!jsonEqual(lv,bv) ? lv : rv);
+    }
 
     const validStudentIds = new Set(merged.students.map(x=>x.id));
     const validAssignmentIds = new Set(merged.assignments.map(x=>x.id));
@@ -731,8 +752,22 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   }
   function classDayFa(day) { return day === 'thursday' ? 'پنجشنبه' : 'دوشنبه'; }
   function groupColor(group) { return GROUP_COLORS[(Math.max(1,Number(group)||1)-1) % GROUP_COLORS.length]; }
+  function ensureGroup(day, group) {
+    day = day === 'thursday' ? 'thursday' : 'monday';
+    group = Math.max(1, Math.round(num(group, 1)));
+    state.project.groups = state.project.groups || {monday:[],thursday:[]};
+    state.project.groups[day] = Array.isArray(state.project.groups[day]) ? state.project.groups[day] : [];
+    if (!state.project.groups[day].includes(group)) {
+      state.project.groups[day].push(group);
+      state.project.groups[day].sort((a,b)=>a-b);
+    }
+    return group;
+  }
   function groupsForActiveClass() {
-    return [...new Set(state.project.students.filter(s => (s.classDay||'monday') === activeClassDay()).map(s => s.group))].sort((a,b)=>a-b);
+    const day = activeClassDay();
+    const saved = state.project.groups?.[day] || [];
+    const fromStudents = state.project.students.filter(s => (s.classDay||'monday') === day).map(s => s.group);
+    return [...new Set([...saved, ...fromStudents])].sort((a,b)=>a-b);
   }
   function normalizeOrders(day, group) {
     const members = state.project.students.filter(s => (s.classDay||'monday')===day && s.group===group)
@@ -893,12 +928,12 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 
   function renderStudentsEditor() {
     const students = sortedStudents();
-    if (!students.length) {
-      $('studentsWrap').innerHTML = '<div class="empty-students">هنوز دانشجویی برای کلاس '+classDayFa(activeClassDay())+' ثبت نشده است.</div>';
+    const groups = groupsForActiveClass();
+    if (!groups.length) {
+      $('studentsWrap').innerHTML = '<div class="empty-students">هنوز گروهی برای کلاس '+classDayFa(activeClassDay())+' ثبت نشده است. از دکمهٔ «افزودن گروه» شروع کنید.</div>';
       return;
     }
 
-    const groups = groupsForActiveClass();
     const maxGroup = Math.max(...groups, 1);
     const groupOptions = groups.map(g => `<option value="${g}">گروه ${dispNum(g)}</option>`).join('') +
       `<option value="${maxGroup+1}">+ گروه ${dispNum(maxGroup+1)}</option>`;
@@ -908,7 +943,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       const members = students.filter(s => s.group === group);
       const color = groupColor(group);
       html += `<section class="student-group-card" data-group="${group}" style="--group-color:${color}">`;
-      html += `<div class="student-group-head"><div class="student-group-title"><span class="group-color-dot"></span><span>گروه</span><input class="group-number-edit" data-group-number="${group}" type="number" min="1" step="1" value="${group}" aria-label="شماره گروه"><span class="muted">· ${dispNum(members.length)} نفر</span></div><button type="button" class="btn ghost small" data-add-to-group="${group}">+ دانشجو</button></div>`;
+      html += `<div class="student-group-head"><div class="student-group-title"><span class="group-color-dot"></span><span>گروه</span><input class="group-number-edit" data-group-number="${group}" type="number" min="1" step="1" value="${group}" aria-label="شماره گروه"><span class="muted">· ${dispNum(members.length)} نفر</span></div><div class="student-group-head-actions"><button type="button" class="btn ghost small" data-add-to-group="${group}">+ دانشجو</button><button type="button" class="btn ghost small group-delete-btn" data-delete-group="${group}">حذف گروه</button></div></div>`;
       html += '<div class="student-group-list">';
       for (const st of members) {
         const opts = groupOptions.replace(`value="${st.group}"`, `value="${st.group}" selected`);
@@ -927,6 +962,10 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 
     $('studentsWrap').querySelectorAll('[data-add-to-group]').forEach(btn => {
       btn.addEventListener('click', () => addStudent(Number(btn.dataset.addToGroup)));
+    });
+
+    $('studentsWrap').querySelectorAll('[data-delete-group]').forEach(btn => {
+      btn.addEventListener('click', () => deleteGroup(Number(btn.dataset.deleteGroup)));
     });
 
     $('studentsWrap').querySelectorAll('.group-number-edit').forEach(input => {
@@ -959,7 +998,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 
       groupSelect.addEventListener('change', e => {
         const oldGroup = st.group;
-        st.group = Math.max(1, Math.round(num(e.target.value, oldGroup)));
+        st.group = ensureGroup(activeClassDay(), Math.max(1, Math.round(num(e.target.value, oldGroup))));
         normalizeOrders(activeClassDay(), oldGroup);
         st.order = state.project.students.filter(x => (x.classDay||'monday')===activeClassDay() && x.group===st.group && x.id!==st.id).length + 1;
         normalizeOrders(activeClassDay(), st.group);
@@ -1052,20 +1091,54 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     oldGroup = Math.max(1, Math.round(num(oldGroup, 1)));
     newGroup = Math.max(1, Math.round(num(newGroup, oldGroup)));
     if (newGroup === oldGroup) return true;
-    const members = state.project.students.filter(x => (x.classDay||'monday')===day && x.group===oldGroup);
-    if (!members.length) return false;
-    const duplicate = state.project.students.some(x => (x.classDay||'monday')===day && x.group===newGroup);
-    if (duplicate) {
+    if (groupsForActiveClass().includes(newGroup)) {
       alert(`گروه ${dispNum(newGroup)} از قبل در کلاس ${classDayFa(day)} وجود دارد. یک شمارهٔ دیگر انتخاب کنید.`);
       return false;
     }
-    members.forEach(x => { x.group = newGroup; });
+    state.project.groups = state.project.groups || {monday:[],thursday:[]};
+    state.project.groups[day] = (state.project.groups[day] || []).map(g => g===oldGroup ? newGroup : g);
+    state.project.students
+      .filter(x => (x.classDay||'monday')===day && x.group===oldGroup)
+      .forEach(x => { x.group = newGroup; });
+    ensureGroup(day,newGroup);
+    state.project.groups[day] = [...new Set(state.project.groups[day])].sort((a,b)=>a-b);
     normalizeOrders(day, newGroup);
     markDirty('شماره گروه تغییر کرد');
     renderStudentsEditor();
     renderScoresEditor();
     renderPreview();
     return true;
+  }
+
+  function addGroup() {
+    const day = activeClassDay();
+    const groups = groupsForActiveClass();
+    const next = groups.length ? Math.max(...groups) + 1 : 1;
+    ensureGroup(day,next);
+    markDirty('گروه اضافه شد');
+    renderStudentsEditor();
+    renderScoresEditor();
+    renderPreview();
+  }
+
+  function deleteGroup(group) {
+    const day = activeClassDay();
+    group = Math.max(1, Math.round(num(group,1)));
+    const members = state.project.students.filter(x => (x.classDay||'monday')===day && x.group===group);
+    const message = members.length
+      ? `گروه ${dispNum(group)} و هر ${dispNum(members.length)} دانشجوی آن، همراه با همهٔ نمره‌هایشان حذف شوند؟`
+      : `گروه ${dispNum(group)} حذف شود؟`;
+    if (!confirm(message)) return;
+    const ids = new Set(members.map(x=>x.id));
+    state.project.students = state.project.students.filter(x => !ids.has(x.id));
+    for (const id of ids) delete state.project.scores[id];
+    state.project.groups = state.project.groups || {monday:[],thursday:[]};
+    state.project.groups[day] = (state.project.groups[day] || []).filter(g => g!==group);
+    markDirty('گروه حذف شد');
+    renderStudentsEditor();
+    renderScoresEditor();
+    renderClassSwitcher();
+    renderPreview();
   }
 
   function reorderStudentByDrop(studentId, targetGroup, targetStudentId = null) {
@@ -1107,7 +1180,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   function addStudent(groupOverride = null) {
     const students = sortedStudents();
     const groups = groupsForActiveClass();
-    const group = groupOverride || (groups.length ? groups[groups.length-1] : 1);
+    const group = ensureGroup(activeClassDay(), groupOverride || (groups.length ? groups[groups.length-1] : 1));
     const order = students.filter(s => s.group === group).length + 1;
     const id = 's_' + Date.now().toString(36);
     state.project.students.push({id, classDay:activeClassDay(), group, order, name:'دانشجوی جدید', confidence:'high', note:''});
@@ -1442,7 +1515,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   function setupPwa(){if('serviceWorker' in navigator && location.protocol!=='file:')navigator.serviceWorker.register('./service-worker.js').catch(console.warn);window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.installPrompt=e;$('installBtn').hidden=false;});$('installBtn').addEventListener('click',async()=>{if(!state.installPrompt)return;state.installPrompt.prompt();await state.installPrompt.userChoice;state.installPrompt=null;$('installBtn').hidden=true;});}
 
   function bindActions(){
-    $('addAssignmentBtn').addEventListener('click',addAssignment);$('addStudentBtn').addEventListener('click',()=>addStudent());
+    $('addAssignmentBtn').addEventListener('click',addAssignment);$('addGroupBtn').addEventListener('click',addGroup);$('addStudentBtn').addEventListener('click',()=>addStudent());
     $('clearScoresBtn').addEventListener('click',()=>{if(!confirm('همهٔ نمره‌های کلاس '+classDayFa(activeClassDay())+' پاک شوند؟'))return;for(const s of sortedStudents())for(const a of state.project.assignments)state.project.scores[s.id][a.id]=null;markDirty('نمره‌های کلاس پاک شدند');renderScoresEditor();renderPreview();});
     $('downloadProjectBtn').addEventListener('click',downloadProject);$('topDownloadProjectBtn').addEventListener('click',downloadProject);
     $('topImportProjectBtn').addEventListener('click',()=>$('topImportProjectInput').click());
