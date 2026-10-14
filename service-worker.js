@@ -20,7 +20,7 @@ self.addEventListener('activate',event=>{
 self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET') return;
   if(self.location.hostname==='rozob1994.github.io' && event.request.mode==='navigate'){
-    event.respondWith(Response.redirect('https://university-leaderboard-private.liara.run/',302));
+    event.respondWith(Response.redirect('https://app.leaderboard-moghadamat.ir/',302));
     return;
   }
   const url=new URL(event.request.url);
