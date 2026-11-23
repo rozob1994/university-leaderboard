@@ -56,9 +56,10 @@ button { cursor: pointer; }
 .offline-banner { background: #fff3cc; color: #634f00; border-bottom: 1px solid #ead992; }
 .warning-banner { background: #fff0f1; color: #7e2228; border-bottom: 1px solid #f1c6c9; }
 .workspace {
-  display: grid; grid-template-columns: minmax(540px, 0.85fr) minmax(620px, 1.15fr);
+  display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
   gap: 14px; padding: 14px; align-items: start;
 }
+.workspace.preview-collapsed { grid-template-columns: minmax(0, 1fr); }
 .editor-panel, .preview-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); min-width: 0; }
 .editor-panel { overflow: hidden; }
 .preview-panel { position: sticky; top: 88px; }
@@ -71,6 +72,7 @@ button { cursor: pointer; }
 .section-head h2 { margin: 0 0 4px; font-size: 18px; }
 .section-head p, .card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .table-wrap { overflow: auto; max-height: calc(100vh - 230px); border: 1px solid var(--border); border-radius: 10px; }
+#scoresWrap { --student-column-width: clamp(170px, 22vw, 220px); scroll-padding-inline-start: var(--student-column-width); }
 table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 13px; }
 th, td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 5px 7px; background: #fff; }
 th { background: #f6f7f8; position: sticky; top: 0; z-index: 2; text-align: left; font-weight: 700; }
@@ -82,14 +84,16 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 .score-input:focus, .text-input:focus, .number-input:focus, select:focus { outline: 2px solid rgba(11,86,107,.25); border-color: var(--accent); }
 .group-cell { width: 56px; text-align: center; font-weight: 700; }
 .student-cell { min-width: 190px; direction: rtl; text-align: right; font-family: Doran, Tahoma, Arial, sans-serif; }
-.scores-table th:first-child, .scores-table td:first-child { position:sticky; left:0; z-index:4; background:#fbfbfb; min-width:190px; }
-.scores-table th:nth-child(2), .scores-table td:nth-child(2) { position:static; left:auto; z-index:auto; }
-.scores-table th:first-child { z-index:5; }
+.scores-table th, .scores-table td { left:auto; }
+.scores-table th { position:sticky; top:0; z-index:4; text-align:start; }
+.scores-table td { position:static; z-index:auto; }
+.scores-table th:first-child, .scores-table td:first-child { position:sticky; inset-inline-start:0; z-index:3; background:#fbfbfb; width:var(--student-column-width); min-width:var(--student-column-width); max-width:var(--student-column-width); box-shadow:-2px 0 0 var(--border); }
+.scores-table th:first-child { z-index:5; background:#f6f7f8; }
 .scores-table tr.group-start:not(:first-child) td { border-top:2px solid #d9dde0; }
 .score-student-wrap { display:flex; align-items:center; gap:8px; min-width:0; }
 .score-group-badge { display:inline-flex; align-items:center; gap:5px; flex:0 0 auto; min-width:42px; height:26px; padding:0 7px; border-radius:999px; background:#f3f5f6; border:1px solid #e0e4e7; font-family:Kalameh,Tahoma,Arial,sans-serif; font-size:11px; font-weight:800; color:#4e565b; }
 .score-group-dot { width:9px; height:9px; border-radius:50%; background:var(--group-color); box-shadow:0 0 0 1px rgba(0,0,0,.06); }
-.score-student-wrap .student-name-inline { min-width:120px; width:150px; flex:1 1 auto; }
+.score-student-wrap .student-name-inline { min-width:0; width:150px; flex:1 1 auto; }
 .assignments-table, .students-table { width: 100%; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .assignments-table table, .students-table table { width: 100%; }
 .assignments-table th, .assignments-table td, .students-table th, .students-table td { position: static; }
@@ -182,7 +186,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   body > *:not(.workspace) { display: none !important; }
   .editor-panel, .preview-toolbar { display: none !important; }
   .workspace { display: block; padding: 0; }
-  .preview-panel { border: 0; box-shadow: none; }
+  .preview-panel, .preview-panel[hidden] { display: block !important; border: 0; box-shadow: none; }
   .preview-scroller { overflow: visible; padding: 0; background: #fff; }
   #leaderboardCanvas { width: 100% !important; height: auto !important; box-shadow: none; }
 }
@@ -209,6 +213,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       <span id="adminIdentity" class="status-pill" hidden></span>
       <button id="logoutBtn" class="btn ghost" hidden>خروج</button>
       <button id="installBtn" class="btn ghost" hidden>نصب برنامه</button>
+      <button id="toggleLeaderboardBtn" type="button" class="btn ghost" aria-expanded="true" aria-controls="leaderboardPanel">جمع کردن لیدربورد</button>
       <button id="topDownloadProjectBtn" class="btn ghost">دانلود پروژه</button>
       <button id="topImportProjectBtn" class="btn ghost">وارد کردن پروژه</button>
       <input id="topImportProjectInput" type="file" accept=".json,.leaderboard.json,application/json" hidden>
@@ -219,7 +224,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   <div id="offlineBanner" class="offline-banner" hidden>آفلاین هستید. ویرایش همچنان کار می‌کند و تغییرات روی همین دستگاه ذخیره می‌شوند.</div>
   <div id="fontBanner" class="warning-banner" hidden></div>
 
-  <main class="workspace">
+  <main id="workspace" class="workspace">
     <section class="editor-panel">
       <div class="class-switcher" role="group" aria-label="روز کلاس">
         <span class="class-switcher-label">کلاس:</span>
@@ -329,7 +334,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       </section>
     </section>
 
-    <aside class="preview-panel">
+    <aside id="leaderboardPanel" class="preview-panel" aria-label="پیش‌نمایش لیدربورد">
       <div class="preview-toolbar">
         <div>
           <strong>پیش‌نمایش زنده</strong>
@@ -354,6 +359,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 
   const STORAGE_KEY = 'universityLeaderboardV3.project';
   const HISTORY_KEY = 'universityLeaderboardV3.history';
+  const PREVIEW_COLLAPSED_KEY = 'universityLeaderboardV3.previewCollapsed';
   const DB_NAME = 'universityLeaderboardV3';
   const HANDLE_STORE = 'handles';
   const HANDLE_KEY = 'cloudProjectHandle';
@@ -390,6 +396,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     installPrompt: null,
     pngCache: null,
     pdfCache: null,
+    previewCollapsed: false,
     sharedEnabled: false,
     sharedRevision: 0,
     sharedBaseProject: null,
@@ -1342,7 +1349,30 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     return canvas;
   }
 
-  function renderPreview() {
+  function setPreviewCollapsed(collapsed, persist = true) {
+    state.previewCollapsed = Boolean(collapsed);
+    $('workspace').classList.toggle('preview-collapsed', state.previewCollapsed);
+    $('leaderboardPanel').hidden = state.previewCollapsed;
+    const toggle = $('toggleLeaderboardBtn');
+    toggle.setAttribute('aria-expanded', String(!state.previewCollapsed));
+    toggle.textContent = state.previewCollapsed ? 'نمایش لیدربورد' : 'جمع کردن لیدربورد';
+    if (persist) {
+      try { localStorage.setItem(PREVIEW_COLLAPSED_KEY, String(state.previewCollapsed)); } catch {}
+    }
+    if (!state.previewCollapsed) renderPreview();
+  }
+
+  function setupPreviewToggle() {
+    let collapsed = false;
+    try { collapsed = localStorage.getItem(PREVIEW_COLLAPSED_KEY) === 'true'; } catch {}
+    setPreviewCollapsed(collapsed, false);
+    $('toggleLeaderboardBtn').addEventListener('click', () => setPreviewCollapsed(!state.previewCollapsed));
+    window.addEventListener('beforeprint', () => renderPreview(true));
+    window.addEventListener('afterprint', () => renderPreview());
+  }
+
+  function renderPreview(force = false) {
+    if (state.previewCollapsed && !force) return;
     const target=$('leaderboardCanvas');
     const temp=renderLeaderboardCanvas(1.25);
     target.width=temp.width;target.height=temp.height;target.getContext('2d').drawImage(temp,0,0);
@@ -1550,6 +1580,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     setupNetwork();
     setupPwa();
     bindActions();
+    setupPreviewToggle();
 
     // Render the usable local interface immediately. Remote sync must never block the app.
     renderAllEditors();
