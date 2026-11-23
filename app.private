@@ -60,6 +60,9 @@ button { cursor: pointer; }
   gap: 14px; padding: 14px; align-items: start;
 }
 .workspace.preview-collapsed { grid-template-columns: minmax(0, 1fr); }
+.workspace.preview-collapsed .preview-panel { position:static; order:-1; }
+.workspace.preview-collapsed .preview-toolbar { border-bottom:0; }
+.workspace.preview-collapsed #previewMeta { display:none; }
 .editor-panel, .preview-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); min-width: 0; }
 .editor-panel { overflow: hidden; }
 .preview-panel { position: sticky; top: 88px; }
@@ -155,7 +158,8 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
 .history-row { display: flex; gap: 8px; margin-top: 12px; }
 .history-row select { min-width: 0; flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
 .muted { color: var(--muted); font-size: 12px; }
-.preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.preview-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.preview-heading { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
 .preview-toolbar strong { display: block; font-size: 14px; }
 .preview-scroller { overflow: auto; max-height: calc(100vh - 150px); padding: 12px; background: #e9ecee; border-radius: 0 0 14px 14px; }
 #leaderboardCanvas { display: block; max-width: none; background: #f7f7f7; box-shadow: 0 2px 10px rgba(0,0,0,.09); transform-origin: top left; }
@@ -186,8 +190,8 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   body > *:not(.workspace) { display: none !important; }
   .editor-panel, .preview-toolbar { display: none !important; }
   .workspace { display: block; padding: 0; }
-  .preview-panel, .preview-panel[hidden] { display: block !important; border: 0; box-shadow: none; }
-  .preview-scroller { overflow: visible; padding: 0; background: #fff; }
+  .preview-panel { display: block !important; border: 0; box-shadow: none; }
+  .preview-scroller, .preview-scroller[hidden] { display: block !important; overflow: visible; padding: 0; background: #fff; }
   #leaderboardCanvas { width: 100% !important; height: auto !important; box-shadow: none; }
 }
 .switch-row { display:flex !important; align-items:center; gap:8px; color:var(--text) !important; font-size:14px !important; }
@@ -213,7 +217,6 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
       <span id="adminIdentity" class="status-pill" hidden></span>
       <button id="logoutBtn" class="btn ghost" hidden>خروج</button>
       <button id="installBtn" class="btn ghost" hidden>نصب برنامه</button>
-      <button id="toggleLeaderboardBtn" type="button" class="btn ghost" aria-expanded="true" aria-controls="leaderboardPanel">جمع کردن لیدربورد</button>
       <button id="topDownloadProjectBtn" class="btn ghost">دانلود پروژه</button>
       <button id="topImportProjectBtn" class="btn ghost">وارد کردن پروژه</button>
       <input id="topImportProjectInput" type="file" accept=".json,.leaderboard.json,application/json" hidden>
@@ -337,7 +340,10 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
     <aside id="leaderboardPanel" class="preview-panel" aria-label="پیش‌نمایش لیدربورد">
       <div class="preview-toolbar">
         <div>
-          <strong>پیش‌نمایش زنده</strong>
+          <div class="preview-heading">
+            <strong>پیش‌نمایش زنده</strong>
+            <button id="toggleLeaderboardBtn" type="button" class="btn ghost small" aria-expanded="true" aria-controls="previewScroller">جمع کردن لیدربورد</button>
+          </div>
           <span id="previewMeta" class="muted"></span>
         </div>
         <div class="button-row compact">
@@ -1352,7 +1358,7 @@ td:first-child, td:nth-child(2) { background: #fbfbfb; }
   function setPreviewCollapsed(collapsed, persist = true) {
     state.previewCollapsed = Boolean(collapsed);
     $('workspace').classList.toggle('preview-collapsed', state.previewCollapsed);
-    $('leaderboardPanel').hidden = state.previewCollapsed;
+    $('previewScroller').hidden = state.previewCollapsed;
     const toggle = $('toggleLeaderboardBtn');
     toggle.setAttribute('aria-expanded', String(!state.previewCollapsed));
     toggle.textContent = state.previewCollapsed ? 'نمایش لیدربورد' : 'جمع کردن لیدربورد';
